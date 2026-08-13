@@ -4,8 +4,6 @@ A record of how GhostPilot was designed, built, and hardened.
 
 GhostPilot is a local-first Electron overlay that reads screen, microphone, and meeting audio as separate inputs, then streams answers from a provider you choose. This log tracks the decisions behind that architecture.
 
-**Newest entries first.**
-
 ---
 
 ## 14-Aug-2026
