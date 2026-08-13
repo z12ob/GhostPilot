@@ -1,9 +1,17 @@
 {
   "name": "ghostpilot",
   "version": "0.2.2",
-  "description": "Open-source cross-platform invisible AI overlay ,  three separate inputs (screen, mic, system audio) into an LLM. A Cluely-style copilot for meetings and coding problems.",
+  "description": "Open-source cross-platform invisible AI overlay: three separate inputs (screen, mic, system audio) into an LLM. A Cluely-style copilot for meetings and coding problems.",
   "license": "MIT",
   "author": "Guram Melikidze",
+  "homepage": "https://github.com/z12ob/GhostPilot#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/z12ob/GhostPilot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/z12ob/GhostPilot/issues"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron .",

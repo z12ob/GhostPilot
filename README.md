@@ -33,10 +33,14 @@ Screen-share hiding is best-effort, not guaranteed. On macOS 15.4+ some capture 
 
 ### Releases
 
-Download a build from [github.com/z12ob/GhostPilot/releases](https://github.com/z12ob/GhostPilot/releases):
+Download the latest build from [GitHub Releases](https://github.com/z12ob/GhostPilot/releases).
 
-- Windows: `GhostPilot-win-x64.exe`
-- macOS: unzip `GhostPilot-…-mac.zip`, move `GhostPilot.app` to Applications
+| Platform | File | Notes |
+|---|---|---|
+| Windows 10/11 x64 | `GhostPilot-win-x64.exe` | NSIS installer. Windows SmartScreen may warn on first run because the build is not code-signed. |
+| Linux x64 | `GhostPilot-0.2.2-linux-x64.AppImage` | `chmod +x` then run |
+| Linux arm64 | `GhostPilot-0.2.2-linux-arm64.AppImage` | AppImage |
+| macOS | build from source | Signed macOS installers are not available yet. Use the steps below on a Mac. |
 
 ### From source
 
@@ -76,7 +80,7 @@ Open Settings (`...` in the panel, or `Ctrl+,` / `⌘+,`).
 | Azure AI Foundry | endpoint + deployment names |
 | Custom | OpenAI-compatible base URL |
 
-Local STT: Settings → Audio → Local. Models download on demand into GhostPilot's user-data folder.
+Local STT: Settings → Audio → Local. Whisper models download on demand into GhostPilot's user-data folder. Installed builds include the whisper.cpp runtime. If you run from source, run `npm run prepare:whisper` before using local transcription.
 
 Profile context (résumé, job description, interview notes) is stored in `ghostpilot-data.json`.
 
@@ -112,7 +116,7 @@ npm test
 npm run verify:whisper-runtime
 ```
 
-Layout: `main.js`, `preload.js`, `renderer/`, `src/`.
+Layout: `main.js`, `preload.js`, `renderer/`, `src/`. Project history is in `CHANGELOG.md`.
 
 ## Privacy
 

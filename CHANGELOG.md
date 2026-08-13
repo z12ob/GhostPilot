@@ -4,6 +4,19 @@ A record of how GhostPilot was designed, built, and hardened.
 
 GhostPilot is a local-first Electron overlay that reads screen, microphone, and meeting audio as separate inputs, then streams answers from a provider you choose. This log tracks the decisions behind that architecture.
 
+**Newest entries first.**
+
+---
+
+## 14-Aug-2026
+
+**Release packaging and docs**
+
+- Listed exact Windows and Linux installer filenames in the README, with a note about SmartScreen on unsigned Windows builds.
+- Bundled the whisper.cpp runtime in release builds so local STT works in installed apps without extra setup.
+- Added GitHub repository metadata to `package.json`.
+- Aligned CI to Node 22, matching the engine requirement in `package.json`.
+
 ---
 
 ## 13-Aug-2026
