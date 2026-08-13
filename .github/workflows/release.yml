@@ -71,9 +71,14 @@ jobs:
         if: matrix.os != 'macos-latest' || env.MAC_SIGNING_CONFIGURED == 'true'
         uses: softprops/action-gh-release@v2
         with:
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: false
           files: |
-            dist/*.exe
-            dist/*.zip
-            dist/*.AppImage
+            dist/GhostPilot-win-x64.exe
+            dist/GhostPilot-win-x64.zip
+            dist/GhostPilot-*-mac-*.zip
+            dist/GhostPilot-*-linux-*.AppImage
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

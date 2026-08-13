@@ -11,6 +11,8 @@ GhostPilot is a local-first Electron overlay that reads screen, microphone, and 
 **Release packaging and docs**
 
 - Listed exact Windows and Linux installer filenames in the README, with a note about SmartScreen on unsigned Windows builds.
+- Added a portable Windows zip alongside the NSIS installer.
+- Wrote step-by-step Quick start and Troubleshooting sections for non-technical installs.
 - Bundled the whisper.cpp runtime in release builds so local STT works in installed apps without extra setup.
 - Added GitHub repository metadata to `package.json`.
 - Aligned CI to Node 22, matching the engine requirement in `package.json`.

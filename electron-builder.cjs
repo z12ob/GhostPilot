@@ -38,7 +38,10 @@ module.exports = {
     },
   },
   win: {
-    target: [{ target: "nsis", arch: ["x64"] }],
+    target: [
+      { target: "nsis", arch: ["x64"] },
+      { target: "zip", arch: ["x64"] }
+    ],
     artifactName: "${productName}-win-${arch}.${ext}",
   },
 
@@ -46,6 +49,7 @@ module.exports = {
     oneClick: false,
     perMachine: false,
     allowToChangeInstallationDirectory: true,
+    createDesktopShortcut: true,
     shortcutName: "GhostPilot",
   },
   linux: {

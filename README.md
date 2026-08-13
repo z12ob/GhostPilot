@@ -21,26 +21,56 @@ Screen-share hiding is best-effort, not guaranteed. On macOS 15.4+ some capture 
 
 ## Platform support
 
-| | macOS | Windows 11 / 10 2004+ |
-|---|---|---|
-| Screen + coding help | yes | yes |
-| Mic ("You") | yes | yes |
-| Meeting audio ("Them") | yes (14.4+) | yes |
-| Hidden from screen shares | best-effort | yes (`WDA_EXCLUDEFROMCAPTURE`) |
-| Permissions | mic + screen recording | microphone |
+| | macOS | Windows 11 / 10 2004+ | Linux |
+|---|---|---|---|
+| Prebuilt download | source only | yes (zip + installer) | yes (AppImage) |
+| Screen + coding help | yes | yes | yes |
+| Mic ("You") | yes | yes | yes |
+| Meeting audio ("Them") | yes (14.4+) | yes | yes |
+| Hidden from screen shares | best-effort | yes (`WDA_EXCLUDEFROMCAPTURE`) | varies |
+| Permissions | mic + screen recording | microphone | mic + screen (varies) |
 
 ## Install
 
-### Releases
+### Quick start (Windows)
 
-Download the latest build from [GitHub Releases](https://github.com/z12ob/GhostPilot/releases).
+1. Open [GitHub Releases](https://github.com/z12ob/GhostPilot/releases) and download **`GhostPilot-win-x64.zip`** (recommended) or **`GhostPilot-win-x64.exe`** (installer).
+2. **Zip:** unzip the folder, then double-click **`GhostPilot.exe`**. **Installer:** run the `.exe`, follow the prompts, then launch GhostPilot from the Start menu.
+3. If Windows SmartScreen appears, choose **More info** → **Run anyway**. The build is not code-signed yet.
+4. Allow **Microphone** access when Windows asks.
+5. In the panel, open **Settings** (`...` or `Ctrl+,`), choose a provider, and paste your API key.
+6. Click **Listen**, then use **Assist** (`Ctrl+Enter`) during a call or coding session.
+
+### Quick start (Linux)
+
+1. Download the AppImage for your CPU (`GhostPilot-1.0.0-linux-x64.AppImage` or `…-arm64.AppImage`).
+2. In a terminal: `chmod +x GhostPilot-1.0.0-linux-x64.AppImage` then run it.
+3. Open **Settings**, add your API key, then click **Listen**.
+
+### macOS
+
+Signed macOS downloads are not on Releases yet. On a Mac, use **From source** below (Node.js 22.12+ required).
+
+### Release files
 
 | Platform | File | Notes |
 |---|---|---|
-| Windows 10/11 x64 | `GhostPilot-win-x64.exe` | NSIS installer. Windows SmartScreen may warn on first run because the build is not code-signed. |
+| Windows 10/11 x64 | `GhostPilot-win-x64.zip` | Portable. Unzip and run `GhostPilot.exe`. |
+| Windows 10/11 x64 | `GhostPilot-win-x64.exe` | Installer. SmartScreen may warn on first run. |
 | Linux x64 | `GhostPilot-1.0.0-linux-x64.AppImage` | `chmod +x` then run |
 | Linux arm64 | `GhostPilot-1.0.0-linux-arm64.AppImage` | AppImage |
-| macOS | build from source | Signed macOS installers are not available yet. Use the steps below on a Mac. |
+| macOS | not on Releases yet | Use **From source** below |
+
+GitHub also attaches **Source code (zip)** and **Source code (tar.gz)** on every release. Those are code snapshots for developers, not installers.
+
+### Troubleshooting
+
+| Problem | What to try |
+|---|---|
+| Downloaded a small `.zip` (~1 MB) | That is **Source code**, not the app. Download `GhostPilot-win-x64.zip` (~100 MB+) instead. |
+| SmartScreen blocks the installer | **More info** → **Run anyway**, or use the portable `.zip`. |
+| No audio from the meeting | On Windows, pick the screen/window share that includes system audio. On macOS 14.4+, grant Screen Recording. |
+| Local transcription fails | Installed builds include whisper.cpp. From source, run `npm run prepare:whisper` first. |
 
 ### From source
 
