@@ -43,8 +43,8 @@ Screen-share hiding is best-effort, not guaranteed. On macOS 15.4+ some capture 
 
 ### Quick start (Linux)
 
-1. Download the AppImage for your CPU (`GhostPilot-1.0.0-linux-x64.AppImage` or `…-arm64.AppImage`).
-2. In a terminal: `chmod +x GhostPilot-1.0.0-linux-x64.AppImage` then run it.
+1. Download the AppImage for your CPU (`GhostPilot-1.0.1-linux-x64.AppImage` or `…-arm64.AppImage`).
+2. In a terminal: `chmod +x GhostPilot-1.0.1-linux-x64.AppImage` then run it.
 3. Open **Settings**, add your API key, then click **Listen**.
 
 ### macOS
@@ -57,11 +57,21 @@ Signed macOS downloads are not on Releases yet. On a Mac, use **From source** be
 |---|---|---|
 | Windows 10/11 x64 | `GhostPilot-win-x64.zip` | Portable. Unzip and run `GhostPilot.exe`. |
 | Windows 10/11 x64 | `GhostPilot-win-x64.exe` | Installer. SmartScreen may warn on first run. |
-| Linux x64 | `GhostPilot-1.0.0-linux-x64.AppImage` | `chmod +x` then run |
-| Linux arm64 | `GhostPilot-1.0.0-linux-arm64.AppImage` | AppImage |
+| Linux x64 | `GhostPilot-1.0.1-linux-x64.AppImage` | `chmod +x` then run |
+| Linux arm64 | `GhostPilot-1.0.1-linux-arm64.AppImage` | AppImage |
 | macOS | not on Releases yet | Use **From source** below |
 
 GitHub also attaches **Source code (zip)** and **Source code (tar.gz)** on every release. Those are code snapshots for developers, not installers.
+
+### Updating
+
+GhostPilot does not update itself yet. Download each new version from [GitHub Releases](https://github.com/z12ob/GhostPilot/releases).
+
+- **Windows installer:** close GhostPilot, download the newest `GhostPilot-win-x64.exe`, and run it over the existing installation.
+- **Windows portable zip:** close GhostPilot, download the newest `GhostPilot-win-x64.zip`, extract it to a new folder, and launch the new `GhostPilot.exe`.
+- **Linux:** download the new AppImage and replace the previous AppImage file.
+
+Settings, provider keys, and downloaded local transcription models live outside the application folder, so replacing the application should keep them.
 
 ### Troubleshooting
 

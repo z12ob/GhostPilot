@@ -8,6 +8,24 @@ GhostPilot is a local-first Electron overlay that reads screen, microphone, and 
 
 ## 14-Aug-2026
 
+**Permissions, identity, and exit behavior**
+
+- Replaced the old Windows process and executable identity with GhostPilot across the app, packaged metadata, window titles, and development runtime.
+- The Windows permission guide now checks the microphone setting and explains the global desktop-app access switch. It no longer asks users to find a separate GhostPilot screen-recording toggle that Windows does not provide.
+- Added visible close, quit, and skip controls to onboarding and permission windows. Escape now closes these frameless dialogs without requiring Task Manager.
+
+**Interface refresh**
+
+- Reworked the overlay, onboarding, permissions, and settings surfaces with a consistent GhostPilot visual system.
+- Added a GhostPilot application icon for packaged Windows, Linux, and macOS builds.
+- Improved narrow-window layouts, keyboard focus, dialog semantics, control labels, and reduced-motion behavior.
+- Consolidated settings open and close handling so validation and focus restoration follow one path.
+
+**Verification**
+
+- Expanded the test suite from 128 to 135 tests with coverage for Windows permission status, application identity, dialog exit paths, and packaged icon configuration.
+- Verified the Windows package at desktop and narrow widths without console errors, horizontal overflow, unnamed controls, or legacy Microsoft Edge Update identity.
+
 **Release packaging and docs**
 
 - Listed exact Windows and Linux installer filenames in the README, with a note about SmartScreen on unsigned Windows builds.
