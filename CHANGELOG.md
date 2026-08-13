@@ -21,7 +21,7 @@ GhostPilot is a local-first Electron overlay that reads screen, microphone, and 
 
 **Production hardening and test suite**
 
-Final pass before calling v0.2.2 releasable.
+Final pass before calling v1.0.0 releasable.
 
 **Architecture regression tests**
 

@@ -38,8 +38,8 @@ Download the latest build from [GitHub Releases](https://github.com/z12ob/GhostP
 | Platform | File | Notes |
 |---|---|---|
 | Windows 10/11 x64 | `GhostPilot-win-x64.exe` | NSIS installer. Windows SmartScreen may warn on first run because the build is not code-signed. |
-| Linux x64 | `GhostPilot-0.2.2-linux-x64.AppImage` | `chmod +x` then run |
-| Linux arm64 | `GhostPilot-0.2.2-linux-arm64.AppImage` | AppImage |
+| Linux x64 | `GhostPilot-1.0.0-linux-x64.AppImage` | `chmod +x` then run |
+| Linux arm64 | `GhostPilot-1.0.0-linux-arm64.AppImage` | AppImage |
 | macOS | build from source | Signed macOS installers are not available yet. Use the steps below on a Mac. |
 
 ### From source
