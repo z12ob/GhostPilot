@@ -12,6 +12,7 @@ const { createStreamingSTT } = require('./src/stt-streaming');
 const { AdaptiveVAD, AudioRingBuffer } = require('./src/vad');
 const { buildInterviewContext, detectCategory } = require('./src/interview-context');
 const { pushPcmChunk, clearPcmBuffer } = require('./src/pcm-buffer');
+const { resolvePermissionStatus } = require('./src/permissions');
 
 if (process.platform === 'darwin') {
   app.commandLine.appendSwitch('enable-features', 'MacLoopbackAudioForScreenShare,MacSckSystemAudioLoopbackOverride');
@@ -196,6 +197,8 @@ function createWindow() {
   const winOptions = {
     width: W,
     height: H,
+    minWidth: 360,
+    minHeight: 360,
     x: startX,
     y: startY,
     frame: false,
@@ -240,11 +243,11 @@ function createWindow() {
     }, 500);
   });
 
-  win.setTitle('Microsoft Edge Update');
+  win.setTitle('GhostPilot');
 
   win.webContents.on('did-finish-load', () => {
     win.showInactive();
-    win.setTitle('Microsoft Edge Update');
+    win.setTitle('GhostPilot');
 
     if (isWindows && !process.env.GHOSTPILOT_NO_PROTECT && !WIN_SUPPORTS_CONTENT_PROTECTION) {
       send('status', {
@@ -627,8 +630,6 @@ ipcMain.handle('profile:pickDocument', async () => {
     return { canceled: false, error: (e && e.message) || String(e) };
   }
 });
-ipcMain.on('app:quit', () => app.quit());
-
 ipcMain.handle('permissions:check', () => getPermissionStatus());
 ipcMain.handle('permissions:request', () => requestPermissions());
 ipcMain.on('permissions:continue', async () => {
@@ -667,11 +668,11 @@ async function verifyScreenAccess() {
 }
 
 async function getPermissionStatus() {
-  if (process.platform !== 'darwin') return { mic: 'granted', screen: 'granted' };
-  return {
-    mic: systemPreferences.getMediaAccessStatus('microphone'),
-    screen: await verifyScreenAccess(),
-  };
+  return resolvePermissionStatus({
+    platform: process.platform,
+    getMediaAccessStatus: (mediaType) => systemPreferences.getMediaAccessStatus(mediaType),
+    verifyScreenAccess
+  });
 }
 
 async function requestPermissions() {
@@ -740,10 +741,9 @@ function launchApp() {
 }
 
 app.whenReady().then(async () => {
-  app.setName('MicrosoftEdgeUpdate');
-  if (isWindows) {
-    process.title = 'MicrosoftEdgeUpdate';
-  }
+  app.setName('GhostPilot');
+  if (isWindows) app.setAppUserModelId('com.ghostpilot.app');
+  process.title = 'GhostPilot';
 
   if (isMac) {
     const allGranted = await requestPermissions();

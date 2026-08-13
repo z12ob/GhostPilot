@@ -12,7 +12,12 @@
     'more-horizontal': '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
     settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
     'message-square-text': '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M13 8H7"/><path d="M17 12H7"/>',
-    'trash-2': '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>'
+    'trash-2': '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
+    'shield-check': '<path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3v8Z"/><path d="m9 12 2 2 4-4"/>',
+    'key-round': '<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3.172a2 2 0 0 0 1.414-.586L9 20h2v-2h2v-2l1.172-1.172a6.5 6.5 0 1 0-5-5Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>',
+    'eye-off': '<path d="m2 2 20 20"/><path d="M6.71 6.71C4.91 7.9 3.48 9.71 2.5 12c2 4.67 5.17 7 9.5 7 1.14 0 2.18-.16 3.12-.47"/><path d="M10.73 5.08C11.14 5.03 11.56 5 12 5c4.33 0 7.5 2.33 9.5 7a13 13 0 0 1-2.04 3.19"/><path d="M14.12 14.12A3 3 0 0 1 9.88 9.88"/>',
+    'circle-check': '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+    mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>'
   };
 
   const FILLED = {
@@ -21,11 +26,10 @@
   };
 
   const LOGO = '<svg viewBox="0 0 24 24" width="SIZE" height="SIZE" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-    '<circle cx="12" cy="12" r="9.2" stroke="currentColor" stroke-width="1.6"/>' +
-    '<path d="M12 12 6.5 8.2a6.6 6.6 0 0 1 5.5-2.9V12z" fill="currentColor"/>' +
-    '<path d="M12 12 15.8 6.5a6.6 6.6 0 0 1 2.9 5.5H12z" fill="currentColor" opacity="0.72"/>' +
-    '<path d="M12 12 17.5 15.8a6.6 6.6 0 0 1-5.5 2.9V12z" fill="currentColor" opacity="0.5"/>' +
-    '<path d="M12 12 8.2 17.5a6.6 6.6 0 0 1-2.9-5.5H12z" fill="currentColor" opacity="0.85"/>' +
+    '<path d="M5.2 11.2C5.2 6.7 7.9 4 12 4s6.8 2.7 6.8 7.2v7.1l-2.7-2.1-2.2 2.3a2.6 2.6 0 0 1-3.8 0l-2.2-2.3-2.7 2.1v-7.1Z" fill="currentColor"/>' +
+    '<circle cx="9.6" cy="10.5" r="1.15" fill="var(--logo-eye, #08101d)"/>' +
+    '<circle cx="14.4" cy="10.5" r="1.15" fill="var(--logo-eye, #08101d)"/>' +
+    '<path d="m10.2 13.9 1.8-.9 1.8.9-1.8 2.4-1.8-2.4Z" fill="var(--logo-eye, #08101d)" opacity=".8"/>' +
     '</svg>';
 
   function icon(name, opts) {

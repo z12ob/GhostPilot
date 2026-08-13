@@ -10,23 +10,23 @@
   <div id="app">
     
     <div id="toolbar" class="drag-handle">
-      <div class="drag-pill" title="Drag to move window">
+      <div class="drag-pill" title="Drag GhostPilot">
         <span class="drag-dots" aria-hidden="true"></span>
         <span class="drag-label">Drag</span>
       </div>
-      <button class="tb-logo" id="logo-btn" title="GhostPilot"></button>
+      <button class="tb-logo" id="logo-btn" title="Open setup guide" aria-label="Open GhostPilot setup guide"></button>
       <div class="tb-divider"></div>
-      <button class="tb-hide" id="hide-btn"><span class="chev"></span><span>Hide</span></button>
+      <button class="tb-hide" id="hide-btn" aria-expanded="true"><span class="chev"></span><span>Hide</span></button>
       <div class="tb-divider"></div>
-      <button class="tb-stop" id="stop-btn" title="Start / stop listening"></button>
+      <button class="tb-stop" id="stop-btn" title="Start listening" aria-label="Start listening" aria-pressed="false"></button>
       <div class="tb-divider"></div>
-      <button class="tb-quit" id="quit-btn" title="Quit GhostPilot (⌘⇧X)"></button>
+      <button class="tb-quit" id="quit-btn" title="Quit GhostPilot" aria-label="Quit GhostPilot"></button>
     </div>
 
     
     <div id="panel-wrap">
-      <span id="live-dot" class="off"></span>
-      <div id="stt-status" class="stt-status stt-disconnected" title="STT connection status">off</div>
+      <span id="live-dot" class="off" aria-hidden="true"></span>
+      <div id="stt-status" class="stt-status stt-disconnected" role="status" aria-live="polite">Idle</div>
       <div id="panel" class="glass no-drag">
 
         
@@ -34,7 +34,7 @@
 
           
           <div id="panel-main">
-            <div id="messages"></div>
+            <div id="messages" aria-live="polite" aria-label="GhostPilot response"></div>
 
             <div id="action-row">
               <button class="act act-primary" data-mode="say"
@@ -42,37 +42,37 @@
                 <span class="ic"></span><span>What should I say?</span>
                 <span class="shortcut-hint" id="say-shortcut-hint"></span>
               </button>
-              <span class="sep">•</span>
+              <span class="sep" aria-hidden="true">•</span>
               <button class="act act-secondary" data-mode="assist"
                 title="Scans your screen and conversation to decide what you need">
                 <span class="ic"></span><span>Assist</span>
                 <span class="shortcut-hint" id="assist-shortcut-hint"></span>
               </button>
-              <span class="sep">•</span>
+              <span class="sep" aria-hidden="true">•</span>
               <button class="act" data-mode="followup"><span class="ic"></span><span>Follow-up</span></button>
-              <span class="sep">•</span>
+              <span class="sep" aria-hidden="true">•</span>
               <button class="act" data-mode="recap"><span class="ic"></span><span>Recap</span></button>
             </div>
 
             <div id="composer">
               <div id="input-area">
                 <div id="placeholder">Ask about your screen or conversation, or <span class="keycap">⌘</span><span class="keycap">⏎</span> for Assist</div>
-                <textarea id="input" rows="1" spellcheck="false"></textarea>
+                <textarea id="input" rows="1" spellcheck="false" aria-label="Ask GhostPilot"></textarea>
               </div>
               <div id="composer-bottom">
-                <button id="smart-toggle" class="smart-pill"><span class="ic"></span><span>Smart</span></button>
-                <button id="history-btn" class="history-btn" title="View conversation history"><span class="ic"></span></button>
-                <button id="more-btn" class="more-btn" title="Settings"></button>
+                <button id="smart-toggle" class="smart-pill" aria-pressed="false"><span class="ic"></span><span>Smart</span></button>
+                <button id="history-btn" class="history-btn" title="View conversation history" aria-label="View conversation history" aria-expanded="false"><span class="ic"></span></button>
+                <button id="more-btn" class="more-btn" title="Settings" aria-label="Open settings"></button>
                 <div class="spacer"></div>
-                <button id="send-btn" title="Send"></button>
+                <button id="send-btn" title="Send" aria-label="Send question"></button>
               </div>
             </div>
 
-            <div id="prep-status" class="prep-status">
-              <span class="prep-item" data-field="resume">📄 Resume</span>
-              <span class="prep-item" data-field="jd">💼 JD</span>
-              <span class="prep-item" data-field="stories">🎯 Stories</span>
-              <span class="prep-item" data-field="salary">💰 Salary</span>
+            <div id="prep-status" class="prep-status" aria-label="Interview context readiness">
+              <span class="prep-item" data-field="resume">Resume</span>
+              <span class="prep-item" data-field="jd">Job description</span>
+              <span class="prep-item" data-field="stories">STAR stories</span>
+              <span class="prep-item" data-field="salary">Salary</span>
             </div>
           </div>
 
@@ -97,24 +97,28 @@
 
   
   <div id="settings-scrim" class="hidden">
-    <div id="settings" class="glass">
+    <div id="settings" class="glass" role="dialog" aria-modal="true" aria-labelledby="settings-title">
       <div class="s-head">
-        <div class="s-title">Settings</div>
+        <div>
+          <div class="s-kicker">GHOSTPILOT</div>
+          <h2 class="s-title" id="settings-title">Settings</h2>
+          <p class="s-subtitle">Preferences and keys stay on this device.</p>
+        </div>
         <button id="s-close" class="s-close">Done</button>
       </div>
 
       
-      <div class="s-tabs">
-        <button class="s-tab on" data-tab="keys">🔑 Keys</button>
-        <button class="s-tab" data-tab="transcription">Audio</button>
-        <button class="s-tab" data-tab="profile">📄 Profile</button>
-        <button class="s-tab" data-tab="prep">🎯 Interview Prep</button>
-        <button class="s-tab" data-tab="style">✨ Style</button>
-        <button class="s-tab" data-tab="qa">💬 Q&amp;A</button>
+      <div class="s-tabs" role="tablist" aria-label="Settings sections">
+        <button class="s-tab on" id="tab-keys" data-tab="keys" role="tab" aria-selected="true" aria-controls="pane-keys">Providers</button>
+        <button class="s-tab" id="tab-transcription" data-tab="transcription" role="tab" aria-selected="false" aria-controls="pane-transcription">Audio</button>
+        <button class="s-tab" id="tab-profile" data-tab="profile" role="tab" aria-selected="false" aria-controls="pane-profile">Profile</button>
+        <button class="s-tab" id="tab-prep" data-tab="prep" role="tab" aria-selected="false" aria-controls="pane-prep">Prep</button>
+        <button class="s-tab" id="tab-style" data-tab="style" role="tab" aria-selected="false" aria-controls="pane-style">Style</button>
+        <button class="s-tab" id="tab-qa" data-tab="qa" role="tab" aria-selected="false" aria-controls="pane-qa">Q&amp;A</button>
       </div>
 
       
-      <div class="s-body s-tab-pane" data-pane="keys">
+      <div class="s-body s-tab-pane" id="pane-keys" data-pane="keys" role="tabpanel" aria-labelledby="tab-keys">
         <label class="s-label">Provider</label>
         <div class="s-seg" id="provider-seg">
           <button data-provider="openai">OpenAI</button>
@@ -161,7 +165,7 @@
       </div>
 
       
-      <div class="s-body s-tab-pane hidden" data-pane="transcription">
+      <div class="s-body s-tab-pane hidden" id="pane-transcription" data-pane="transcription" role="tabpanel" aria-labelledby="tab-transcription">
         <label class="s-label">Speech-to-text provider</label>
         <div class="s-seg s-seg-wrap" id="stt-provider-seg">
           <button data-stt-provider="auto">Auto</button>
@@ -212,7 +216,7 @@
       </div>
 
       
-      <div class="s-body s-tab-pane hidden" data-pane="profile">
+      <div class="s-body s-tab-pane hidden" id="pane-profile" data-pane="profile" role="tabpanel" aria-labelledby="tab-profile">
         <label class="s-label">Your resume <span class="s-hint">paste full resume, or import a PDF/DOCX</span></label>
         <div class="s-field s-upload"><span class="s-filename" id="resume-filename"></span><button class="s-upload-btn" id="upload-resume-btn">Import PDF/DOCX</button></div>
         <textarea id="resume-text" rows="7" spellcheck="false" placeholder="Paste your full resume here. GhostPilot will extract Name, Summary, Experience, Skills, Projects, and Education automatically."></textarea>
@@ -223,7 +227,7 @@
       </div>
 
       
-      <div class="s-body s-tab-pane hidden" data-pane="prep">
+      <div class="s-body s-tab-pane hidden" id="pane-prep" data-pane="prep" role="tabpanel" aria-labelledby="tab-prep">
         <label class="s-label">Your STAR stories <span class="s-hint">write 3-5 real behavioral stories ,  used for "tell me about a time…" questions</span></label>
         <textarea id="star-stories" rows="8" spellcheck="false" placeholder="Story 1: At [Company], we faced [situation]. I was responsible for [task]. I did [specific actions]. The result was [outcome with metrics if possible].&#10;&#10;Story 2: ..."></textarea>
 
@@ -238,16 +242,16 @@
       </div>
 
       
-      <div class="s-body s-tab-pane hidden" data-pane="qa">
+      <div class="s-body s-tab-pane hidden" id="pane-qa" data-pane="qa" role="tabpanel" aria-labelledby="tab-qa">
         <label class="s-label">Salary target <span class="s-hint">used when asked about compensation</span></label>
-        <input id="salary-target" type="text" placeholder="e.g. $150k-$180k base + equity, open to discuss total comp" autocomplete="off" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.14);background:rgba(0,0,0,0.25);color:#fff;font-size:13px;font-family:inherit;outline:none;" />
+        <input id="salary-target" class="s-text-input" type="text" placeholder="e.g. $150k-$180k base + equity, open to discuss total comp" autocomplete="off" />
 
-        <label class="s-label" style="margin-top:14px;">Questions to ask the interviewer <span class="s-hint">GhostPilot will suggest these at the end</span></label>
+        <label class="s-label s-label-spaced">Questions to ask the interviewer <span class="s-hint">GhostPilot will suggest these at the end</span></label>
         <textarea id="questions-to-ask" rows="6" spellcheck="false" placeholder="e.g.&#10;- What does success look like in the first 90 days?&#10;- How does the team handle technical debt?&#10;- What's the biggest challenge the team is facing right now?&#10;- How does feedback and mentorship work here?"></textarea>
       </div>
 
       
-      <div class="s-body s-tab-pane hidden" data-pane="style">
+      <div class="s-body s-tab-pane hidden" id="pane-style" data-pane="style" role="tabpanel" aria-labelledby="tab-style">
         <label class="s-label">AI rules <span class="s-hint">how the AI should write its responses</span></label>
         <textarea id="ai-rules" rows="10" spellcheck="false" maxlength="2000" placeholder="e.g.
 - Never use em-dashes.
@@ -268,14 +272,17 @@
 
   
   <div id="onboard-scrim" class="hidden">
-    <div id="onboard" class="glass">
-      <div class="ob-dots" id="ob-dots"></div>
-      <div class="ob-icon" id="ob-icon"></div>
-      <div class="ob-title" id="ob-title"></div>
+    <div id="onboard" class="glass" role="dialog" aria-modal="true" aria-labelledby="ob-title" aria-describedby="ob-body">
+      <button id="ob-close" class="ob-close" aria-label="Close setup guide"></button>
+      <div class="ob-progress" id="ob-progress">SETUP</div>
+      <div class="ob-dots" id="ob-dots" aria-hidden="true"></div>
+      <div class="ob-icon" id="ob-icon" aria-hidden="true"></div>
+      <h2 class="ob-title" id="ob-title"></h2>
       <div class="ob-body" id="ob-body"></div>
       <div class="ob-buttons" id="ob-buttons"></div>
       <div class="ob-actions">
-        <button id="ob-skip" class="ob-ghost">Skip</button>
+        <button id="ob-quit" class="ob-ghost ob-quit">Quit GhostPilot</button>
+        <button id="ob-skip" class="ob-ghost">Skip guide</button>
         <div class="spacer"></div>
         <button id="ob-back" class="ob-ghost">Back</button>
         <button id="ob-next" class="ob-primary">Next</button>

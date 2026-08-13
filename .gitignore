@@ -27,5 +27,7 @@ test-resume.js
 # Kiro IDE internals — hide spec/steering from public repo
 .kiro/
 
+asset.md
+
 # Electron dist cache
 node_modules/electron/dist/electron.exe.bak

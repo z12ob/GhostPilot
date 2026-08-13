@@ -18,6 +18,7 @@ module.exports = {
   directories: { buildResources: "build-resources" },
   afterPack: "scripts/after-pack.js",
   mac: {
+    icon: "build-resources/icon.svg",
     target: [{ target: "zip", arch: ["x64", "arm64"] }],
     category: "public.app-category.productivity",
 
@@ -38,6 +39,7 @@ module.exports = {
     },
   },
   win: {
+    icon: "build-resources/icon.svg",
     target: [
       { target: "nsis", arch: ["x64"] },
       { target: "zip", arch: ["x64"] }
@@ -53,6 +55,7 @@ module.exports = {
     shortcutName: "GhostPilot",
   },
   linux: {
+    icon: "build-resources/icon.svg",
     target: [{ target: "AppImage", arch: ["x64", "arm64"] }],
     category: "Utility",
   },

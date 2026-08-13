@@ -6,16 +6,17 @@
   const isWindows = ghostPilot.platform === 'win32';
   const isMac = ghostPilot.platform === 'darwin';
 
-  $('#logo-btn').innerHTML = icon('logo', { size: 18 });
+  $('#logo-btn').innerHTML = '<span class="brand-mark">' + icon('logo', { size: 18 }) + '</span><span class="brand-name">GhostPilot</span>';
   $('.tb-hide .chev').innerHTML = icon('chevron-down', { size: 14 });
-  $('#stop-btn').innerHTML = icon('stop-square', { size: 15 });
+  $('#stop-btn').innerHTML = icon('mic', { size: 16 });
   $('#quit-btn').innerHTML = icon('x', { size: 14 });
+  $('#ob-close').innerHTML = icon('x', { size: 16 });
   document.querySelector('.act[data-mode="assist"] .ic').innerHTML = icon('sparkles', { size: 16 });
   document.querySelector('.act[data-mode="say"] .ic').innerHTML = icon('wand-sparkles', { size: 16 });
   document.querySelector('.act[data-mode="followup"] .ic').innerHTML = icon('message-circle', { size: 16 });
   document.querySelector('.act[data-mode="recap"] .ic').innerHTML = icon('refresh-cw', { size: 16 });
   $('#smart-toggle .ic').innerHTML = icon('zap', { size: 14 });
-  $('#more-btn').innerHTML = icon('more-horizontal', { size: 18 });
+  $('#more-btn').innerHTML = icon('settings', { size: 17 });
   $('#send-btn').innerHTML = icon('play', { size: 15 });
   const clearIC = document.querySelector('#clear-transcript-btn .ic');
   if (clearIC) clearIC.innerHTML = icon('trash-2', { size: 15 });
@@ -516,12 +517,14 @@
   smartBtn.addEventListener('click', async () => {
     settings.smart = !settings.smart;
     smartBtn.classList.toggle('on', settings.smart);
+    smartBtn.setAttribute('aria-pressed', String(settings.smart));
     await ghostPilot.settingsSet({ smart: settings.smart });
   });
 
   function toggleHide() {
     const collapsed = $('#panel').classList.toggle('collapsed');
     $('#hide-btn').classList.toggle('collapsed', collapsed);
+    $('#hide-btn').setAttribute('aria-expanded', String(!collapsed));
     $('#live-dot').style.display = collapsed ? 'none' : '';
   }
   $('#hide-btn').addEventListener('click', toggleHide);
@@ -747,7 +750,10 @@
     const sidebar = document.getElementById('transcript-sidebar');
     const historyBtn = document.getElementById('history-btn');
     if (sidebar) sidebar.classList.remove('hidden');
-    if (historyBtn) historyBtn.classList.add('active');
+    if (historyBtn) {
+      historyBtn.classList.add('active');
+      historyBtn.setAttribute('aria-expanded', 'true');
+    }
     const panelWrap = document.getElementById('panel-wrap');
     if (panelWrap) panelWrap.classList.add('sidebar-open');
     sidebarOpen = true;
@@ -757,7 +763,10 @@
     const sidebar = document.getElementById('transcript-sidebar');
     const historyBtn = document.getElementById('history-btn');
     if (sidebar) sidebar.classList.add('hidden');
-    if (historyBtn) historyBtn.classList.remove('active');
+    if (historyBtn) {
+      historyBtn.classList.remove('active');
+      historyBtn.setAttribute('aria-expanded', 'false');
+    }
     const panelWrap = document.getElementById('panel-wrap');
     if (panelWrap) panelWrap.classList.remove('sidebar-open');
     sidebarOpen = false;
@@ -865,6 +874,10 @@
   ghostPilot.on('capture:state', async ({ active, streaming, mode }) => {
     setLiveDotState(active ? 'idle' : 'off');
     $('#stop-btn').classList.toggle('active', active);
+    $('#stop-btn').setAttribute('aria-pressed', String(active));
+    $('#stop-btn').setAttribute('aria-label', active ? 'Stop listening' : 'Start listening');
+    $('#stop-btn').title = active ? 'Stop listening' : 'Start listening';
+    $('#stop-btn').innerHTML = icon(active ? 'stop-square' : 'mic', { size: 16 });
     composer.classList.toggle('listening', active);
     const historyBtn = document.getElementById('history-btn');
     if (historyBtn) historyBtn.classList.toggle('listening', active);
@@ -1141,16 +1154,18 @@
   }
 
   const scrim = $('#settings-scrim');
-  function openSettings() { fillSettings(); scrim.classList.remove('hidden'); }
-  async function closeSettings() {
-    if (await saveSettings()) scrim.classList.add('hidden');
-  }
   function openSettings() {
     fillSettings();
     scrim.classList.remove('hidden');
     refreshWhisperModels();
+    $('#s-close').focus();
   }
-  function closeSettings() { saveSettings(); scrim.classList.add('hidden'); }
+  async function closeSettings() {
+    if (await saveSettings()) {
+      scrim.classList.add('hidden');
+      $('#more-btn').focus();
+    }
+  }
   $('#more-btn').addEventListener('click', openSettings);
   $('#s-close').addEventListener('click', () => { void closeSettings(); });
   scrim.addEventListener('click', (e) => { if (e.target === scrim) void closeSettings(); });
@@ -1159,9 +1174,13 @@
     tab.addEventListener('click', async () => {
       if (tab.classList.contains('on')) return;
       if (!(await saveSettings())) return;
-      document.querySelectorAll('.s-tab').forEach(t => t.classList.remove('on'));
+      document.querySelectorAll('.s-tab').forEach((candidate) => {
+        candidate.classList.remove('on');
+        candidate.setAttribute('aria-selected', 'false');
+      });
       document.querySelectorAll('.s-tab-pane').forEach(p => p.classList.add('hidden'));
       tab.classList.add('on');
+      tab.setAttribute('aria-selected', 'true');
       const pane = document.querySelector(`.s-tab-pane[data-pane="${tab.dataset.tab}"]`);
       if (pane) pane.classList.remove('hidden');
     });
@@ -1466,8 +1485,22 @@
     messages.appendChild(ai);
   }
 
+  function keepFocusInDialog(e, dialog) {
+    if (e.key !== 'Tab' || !dialog) return;
+    const focusable = [...dialog.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+      .filter((element) => element.offsetParent !== null);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !scrim.classList.contains('hidden')) closeSettings();
+    const activeDialog = !obScrim.classList.contains('hidden') ? $('#onboard') : (!scrim.classList.contains('hidden') ? $('#settings') : null);
+    keepFocusInDialog(e, activeDialog);
+    if (e.key === 'Escape' && !obScrim.classList.contains('hidden')) { e.preventDefault(); finishOnboard(); }
+    else if (e.key === 'Escape' && !scrim.classList.contains('hidden')) closeSettings();
     if ((e.metaKey || e.ctrlKey) && e.key === ',') { e.preventDefault(); openSettings(); }
   });
 
@@ -1482,76 +1515,97 @@
 
   const obScrim = $('#onboard-scrim');
   const permissionHelp = isWindows
-    ? 'GhostPilot needs permission to see and hear. Open Windows Privacy & security settings, allow <strong>Microphone</strong> and <strong>Screen recording</strong> for GhostPilot, then come back here.'
+    ? 'Windows uses one microphone switch for desktop apps. Turn on <strong>Microphone access</strong> and <strong>Allow desktop apps to access your microphone</strong>. GhostPilot will not appear as a separate toggle. Screen capture works automatically on Windows.'
     : 'GhostPilot needs two macOS permissions. Click each button, turn <strong>GhostPilot</strong> ON in the window that opens, then come back here.';
   const permissionButtons = isWindows
     ? [
-        { label: 'Open Microphone settings', action: () => ghostPilot.openPane('ms-settings:privacy-microphone') },
-        { label: 'Open Screen recording settings', action: () => ghostPilot.openPane('ms-settings:privacy-screenrecorder') }
+        { label: 'Open microphone settings', action: () => ghostPilot.openPane('ms-settings:privacy-microphone') },
+        { label: 'Check access', action: checkPermissionAccess }
       ]
     : [
         { label: 'Open Microphone settings', action: () => ghostPilot.openPane('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone') },
-        { label: 'Open Screen Recording settings', action: () => ghostPilot.openPane('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture') }
+        { label: 'Open Screen Recording settings', action: () => ghostPilot.openPane('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture') },
+        { label: 'Check access', action: checkPermissionAccess }
       ];
   const assistShortcut = isWindows ? '<span class="kbd">Ctrl</span> <span class="kbd">↵</span>' : '<span class="kbd">⌘</span> <span class="kbd">↵</span>';
   const solveShortcut = isWindows ? '<span class="kbd">Ctrl</span> <span class="kbd">H</span>' : '<span class="kbd">⌘</span> <span class="kbd">H</span>';
   const quitShortcut = isWindows ? '<span class="kbd">Ctrl</span><span class="kbd">⇧</span><span class="kbd">X</span>' : '<span class="kbd">⌘</span><span class="kbd">⇧</span><span class="kbd">X</span>';
   const OB_STEPS = [
     {
-      icon: '👋',
+      icon: 'logo',
       title: 'Welcome to GhostPilot',
-      body: 'GhostPilot is a private AI copilot that floats over your screen. It can <strong>see your screen</strong>, <strong>hear your meetings</strong>, and help you answer questions or solve coding problems ,  while staying hidden from most screen shares.<br><br>This quick guide gets you running in about a minute.'
+      body: 'A private AI copilot for live conversations and coding. GhostPilot can use your screen and meeting audio to help in real time, while staying hidden from most screen shares.<br><br>This guide gets the essentials ready in about a minute.'
     },
     {
-      icon: '🔐',
-      title: 'Allow GhostPilot to see & hear',
-      body: permissionHelp + '<ul><li><strong>Microphone</strong> ,  to hear you</li><li><strong>Screen recording</strong> ,  to see your screen and hear meeting audio</li></ul>',
+      icon: 'shield-check',
+      title: isWindows ? 'Enable microphone access' : 'Allow screen and microphone access',
+      body: permissionHelp + '<div id="ob-permission-status" class="ob-status" role="status" aria-live="polite">Check access after changing your system settings.</div>',
       buttons: permissionButtons
     },
     {
-      icon: '🔑',
+      icon: 'key-round',
       title: 'Connect an AI provider',
-      body: 'GhostPilot uses <strong>your own</strong> API key ,  pick <span class="hl">OpenAI</span>, <span class="hl">Anthropic</span>, <span class="hl">Google Gemini</span>, or <span class="hl">Azure AI Foundry</span>. Get a key from your provider, then paste it into GhostPilot\'s Settings.<br><br><strong>Tip:</strong> For the <em>best</em> real-time listening, add a <span class="hl">Deepgram</span> key (lowest latency streaming transcription). Otherwise, an OpenAI key enables streaming via the Realtime API, and Gemini/Whisper work as batch fallbacks.',
+      body: 'GhostPilot uses your own provider key. Choose <span class="hl">OpenAI</span>, <span class="hl">Anthropic</span>, <span class="hl">Google Gemini</span>, or <span class="hl">Azure AI Foundry</span>, then paste the key into Settings.<br><br>For low-latency transcription, add a <span class="hl">Deepgram</span> key or use a supported local Whisper model.',
       buttons: [{ label: 'Open GhostPilot Settings', action: () => { finishOnboard(); openSettings(); } }]
     },
     {
-      icon: '🫥',
+      icon: 'eye-off',
       title: 'Stay hidden in Zoom',
-      body: 'GhostPilot is hidden from most screen shares automatically (Google Meet, Teams, QuickTime ,  nothing to do). <strong>Zoom needs one setting:</strong><br><br>Zoom → <span class="hl">Settings</span> → <span class="hl">Share Screen</span> → <span class="hl">Advanced</span> → <strong>Screen capture mode</strong> → choose <strong>“Advanced capture with window filtering.”</strong><br><br>Avoid “<strong>without</strong> window filtering” ,  that mode reveals ghostPilot.'
+      body: 'GhostPilot is hidden from most screen shares automatically. <strong>Zoom needs one setting:</strong><br><br>Zoom → <span class="hl">Settings</span> → <span class="hl">Share Screen</span> → <span class="hl">Advanced</span> → <strong>Screen capture mode</strong> → choose <strong>“Advanced capture with window filtering.”</strong><br><br>Avoid the option without window filtering because it can reveal GhostPilot.'
     },
     {
-      icon: '✨',
-      title: 'You’re all set',
-      body: 'How to use GhostPilot:<ul><li>' + assistShortcut + ' ,  <strong>Assist</strong> with whatever\'s on screen or being said</li><li>' + solveShortcut + ' ,  solve a coding problem on screen</li><li>Click <strong>▢</strong> in the top bar to start listening to a meeting</li><li>Type a question and press <span class="kbd">↵</span></li></ul>Reopen this guide anytime by clicking the <strong>GhostPilot logo</strong>. Quit with ' + quitShortcut + '.'
+      icon: 'circle-check',
+      title: 'Ready when you are',
+      body: '<ul><li>' + assistShortcut + ' opens <strong>Assist</strong> for the current screen or conversation</li><li>' + solveShortcut + ' solves a coding problem on screen</li><li>Use the square control in the top bar to start or stop listening</li><li>Type a question and press <span class="kbd">↵</span></li></ul>Open this guide from the GhostPilot mark. Quit anytime with ' + quitShortcut + '.'
     }
   ];
+
+  async function checkPermissionAccess() {
+    const statusEl = $('#ob-permission-status');
+    if (!statusEl) return;
+    statusEl.textContent = 'Checking access…';
+    try {
+      const status = await ghostPilot.permissionsCheck();
+      const ready = status.mic === 'granted' && status.screen === 'granted';
+      statusEl.textContent = ready
+        ? 'Access is ready.'
+        : (isWindows ? 'Microphone access is still blocked for desktop apps.' : 'One or more permissions are still blocked.');
+      statusEl.classList.toggle('ready', ready);
+    } catch (_) {
+      statusEl.textContent = 'GhostPilot could not check access. Open system settings and try again.';
+      statusEl.classList.remove('ready');
+    }
+  }
   let obIndex = 0;
   function renderOnboard() {
     const step = OB_STEPS[obIndex];
-    $('#ob-icon').textContent = step.icon;
+    $('#ob-icon').innerHTML = icon(step.icon, { size: 30 });
     $('#ob-title').textContent = step.title;
     $('#ob-body').innerHTML = step.body;
     const btns = $('#ob-buttons'); btns.innerHTML = '';
     (step.buttons || []).forEach((b) => { const el = document.createElement('button'); el.textContent = b.label; el.addEventListener('click', b.action); btns.appendChild(el); });
     const dots = $('#ob-dots'); dots.innerHTML = '';
     OB_STEPS.forEach((_, i) => { const d = document.createElement('span'); if (i === obIndex) d.className = 'on'; dots.appendChild(d); });
+    $('#ob-progress').textContent = `SETUP ${obIndex + 1} OF ${OB_STEPS.length}`;
     $('#ob-back').style.visibility = obIndex === 0 ? 'hidden' : 'visible';
     $('#ob-next').textContent = obIndex === OB_STEPS.length - 1 ? 'Done' : 'Next';
     $('#ob-skip').style.visibility = obIndex === OB_STEPS.length - 1 ? 'hidden' : 'visible';
   }
-  function showOnboard() { obIndex = 0; renderOnboard(); obScrim.classList.remove('hidden'); setIgnore(false); }
+  function showOnboard() { obIndex = 0; renderOnboard(); obScrim.classList.remove('hidden'); setIgnore(false); $('#ob-close').focus(); }
   async function finishOnboard() {
     obScrim.classList.add('hidden');
     if (settings && !settings.onboarded) { settings.onboarded = true; await ghostPilot.settingsSet({ onboarded: true }); }
+    $('#logo-btn').focus();
   }
   $('#ob-next').addEventListener('click', () => { if (obIndex === OB_STEPS.length - 1) finishOnboard(); else { obIndex++; renderOnboard(); } });
   $('#ob-back').addEventListener('click', () => { if (obIndex > 0) { obIndex--; renderOnboard(); } });
+  $('#ob-close').addEventListener('click', finishOnboard);
+  $('#ob-quit').addEventListener('click', () => ghostPilot.quit());
   $('#ob-skip').addEventListener('click', finishOnboard);
   $('#logo-btn').addEventListener('click', showOnboard);
 
   (async function boot() {
     settings = await ghostPilot.settingsGet();
-    const platformInfo = await ghostPilot.platformInfo();
 
     const sayHintEl = document.getElementById('say-shortcut-hint');
     const assistHintEl = document.getElementById('assist-shortcut-hint');
@@ -1562,14 +1616,8 @@
 
     updateSmartTooltip();
 
-    if (isWindows && platformInfo.winBuild > 0 && platformInfo.winBuild < 22000) {
-
-      const ob = OB_STEPS[1];
-      ob.buttons = ob.buttons.filter((b) => !b.label.toLowerCase().includes('screen'));
-      ob.body = 'GhostPilot needs microphone permission to hear you. Click the button below to open Windows microphone settings and allow GhostPilot.<br><br><strong>Screen capture works automatically on Windows 10</strong> ,  no additional permission needed.<ul><li><strong>Microphone</strong> ,  to hear you</li><li><strong>Screen recording</strong> ,  works automatically on Windows 10</li></ul>';
-    }
-
     smartBtn.classList.toggle('on', !!settings.smart);
+    smartBtn.setAttribute('aria-pressed', String(!!settings.smart));
     showExample();
     syncPlaceholder();
     updateHistoryBadge();
@@ -1582,6 +1630,8 @@
     const st = await ghostPilot.captureState();
     $('#live-dot').classList.toggle('off', !st.active);
     $('#stop-btn').classList.toggle('active', st.active);
+    $('#stop-btn').setAttribute('aria-pressed', String(st.active));
+    $('#stop-btn').innerHTML = icon(st.active ? 'stop-square' : 'mic', { size: 16 });
     if (!settings.onboarded) showOnboard();
   })();
 })();

@@ -60,3 +60,14 @@ test('mac config ships the zip target with entitlements files that exist on disk
   const entitlementsXml = fs.readFileSync(path.join(root, builder.mac.entitlements), 'utf8');
   assert.match(entitlementsXml, /com\.apple\.security\.device\.audio-input/);
 });
+
+test('packaged apps use the branded GhostPilot icon source', () => {
+  delete require.cache[require.resolve('../electron-builder.cjs')];
+  const builder = require('../electron-builder.cjs');
+  const root = path.join(__dirname, '..');
+
+  assert.equal(builder.win.icon, 'build-resources/icon.svg');
+  assert.equal(builder.mac.icon, 'build-resources/icon.svg');
+  assert.equal(builder.linux.icon, 'build-resources/icon.svg');
+  assert.ok(fs.existsSync(path.join(root, 'build-resources', 'icon.svg')));
+});
