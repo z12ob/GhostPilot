@@ -46,3 +46,22 @@ test('settings has one validation-aware open and close path', () => {
   assert.equal((renderer.match(/function closeSettings\(/g) || []).length, 1);
   assert.match(renderer, /async function closeSettings\(\)[\s\S]*if \(await saveSettings\(\)\)[\s\S]*classList\.add\('hidden'\)/);
 });
+
+test('listen starts browser media inside the user click handler', () => {
+  const renderer = read('renderer/renderer.js');
+  const handler = renderer.match(/#stop-btn'\)\.addEventListener\('click', async \(\) => \{([\s\S]*?)\n  \}\);/);
+
+  assert.ok(handler, 'listen click handler should exist');
+  assert.match(handler[1], /startMic\(\)/);
+  assert.match(handler[1], /startSystemAudio\(\)/);
+  const startBranch = handler[1].slice(handler[1].indexOf('const mediaStarts'));
+  assert.ok(startBranch.indexOf('startMic()') < startBranch.indexOf('await ghostPilot.captureToggle()'));
+  assert.ok(startBranch.indexOf('startSystemAudio()') < startBranch.indexOf('await ghostPilot.captureToggle()'));
+});
+
+test('audio worklets stay connected through silent output sinks', () => {
+  const renderer = read('renderer/renderer.js');
+
+  assert.match(renderer, /source\.connect\(micWorklet\);[\s\S]*micWorklet\.connect\(sink\);[\s\S]*sink\.connect\(audioCtx\.destination\)/);
+  assert.match(renderer, /source\.connect\(sysWorklet\);[\s\S]*sysWorklet\.connect\(sink\);[\s\S]*sink\.connect\(sysCtx\.destination\)/);
+});

@@ -6,6 +6,38 @@ GhostPilot is a local-first Electron overlay that reads screen, microphone, and 
 
 ---
 
+## 31-Aug-2026
+
+**Windows meeting audio**
+
+- Corrected the Electron display-media response to request Windows loopback audio explicitly.
+- Moved microphone and meeting-audio startup into the Listen click path so browser media access retains the required user activation.
+- Added specific recovery messages for permission denial, missing output tracks, exclusive device access, cancelled startup, and interrupted meeting audio.
+- Resumed suspended audio contexts and detect output tracks that end during a session.
+- Connected both AudioWorklet pipelines through silent output sinks so Chromium keeps processing long-running streams.
+
+**Long-session notes**
+
+- Replaced the 200-turn transcript limit with a bounded character buffer suitable for multi-hour sessions.
+- Recap now processes long transcripts in sections before producing final structured notes.
+- Added meeting summary, cheat sheet, topics and connections, decisions, action items, open questions, and follow-up sections.
+- Kept audio buffers bounded and provider requests abortable during long sessions.
+
+**Public documentation**
+
+- Rebuilt the README around the GhostPilot logo, real meeting and interview workflows, privacy boundaries, updates, release files, and practical troubleshooting.
+- Clarified that GitHub adds two source archives automatically and that the Windows installer remains optional while the portable zip is recommended.
+- Advanced the release version to 1.1.0 for the new long-session notes capability.
+
+**Verification**
+
+- Added regression coverage for Windows loopback selection, click-timed media startup, transcript retention, and long-transcript note preparation.
+- Upgraded the packaged runtime from Electron 33 to Electron 44 and replaced the vulnerable zip extraction package with Electron's maintained fork.
+- Enabled ASAR packaging while keeping the local Whisper runtime in the external resources directory.
+- Expanded the automated suite from 135 to 145 passing tests.
+
+---
+
 ## 14-Aug-2026
 
 **Permissions, identity, and exit behavior**

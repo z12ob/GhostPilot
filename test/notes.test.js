@@ -1,6 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { buildNotesPrompt, parseNotes } = require('../src/notes');
+const {
+  buildCombinedNotesPrompt,
+  buildNotesPrompt,
+  buildPartialNotesPrompt,
+  chunkTranscript,
+  parseNotes
+} = require('../src/notes');
 
 const transcript = [
   { channel: 'them', text: 'We need to launch by Friday.', ts: 1 },
@@ -12,7 +18,33 @@ test('buildNotesPrompt formats speakers and preserves order', () => {
   const p = buildNotesPrompt(transcript);
   assert.ok(p.includes('Them: We need to launch by Friday.'));
   assert.ok(p.includes('You: I can handle the API work.'));
+  assert.ok(p.includes('Cheat Sheet:'));
+  assert.ok(p.includes('Topics and Connections:'));
   assert.ok(p.includes('Action Items:'));
+});
+
+test('chunkTranscript preserves every turn in order', () => {
+  const chunks = chunkTranscript(transcript, 45);
+  const combined = chunks.flat().map((turn) => turn.text);
+
+  assert.deepEqual(combined, transcript.map((turn) => turn.text));
+  assert.ok(chunks.length > 1);
+});
+
+test('buildPartialNotesPrompt identifies the transcript section', () => {
+  const prompt = buildPartialNotesPrompt(transcript, 1, 3);
+
+  assert.match(prompt, /section 1 of 3/i);
+  assert.match(prompt, /important topics and how they connect/i);
+  assert.match(prompt, /Them: We need to launch by Friday\./);
+});
+
+test('buildCombinedNotesPrompt requests one structured final result', () => {
+  const prompt = buildCombinedNotesPrompt(['Section facts', 'More facts']);
+
+  assert.match(prompt, /Section 1: Section facts/);
+  assert.match(prompt, /Section 2: More facts/);
+  assert.match(prompt, /Topics and Connections:/);
 });
 
 test('parseNotes extracts all five sections', () => {

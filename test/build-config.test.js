@@ -71,3 +71,12 @@ test('packaged apps use the branded GhostPilot icon source', () => {
   assert.equal(builder.linux.icon, 'build-resources/icon.svg');
   assert.ok(fs.existsSync(path.join(root, 'build-resources', 'icon.svg')));
 });
+
+test('packaged JavaScript uses ASAR while native speech runtime stays external', () => {
+  delete require.cache[require.resolve('../electron-builder.cjs')];
+  const builder = require('../electron-builder.cjs');
+  const afterPack = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'after-pack.js'), 'utf8');
+
+  assert.equal(builder.asar, true);
+  assert.match(afterPack, /resources', 'whisper-runtime/);
+});

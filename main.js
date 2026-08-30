@@ -13,6 +13,9 @@ const { AdaptiveVAD, AudioRingBuffer } = require('./src/vad');
 const { buildInterviewContext, detectCategory } = require('./src/interview-context');
 const { pushPcmChunk, clearPcmBuffer } = require('./src/pcm-buffer');
 const { resolvePermissionStatus } = require('./src/permissions');
+const { buildDisplayMediaStreams } = require('./src/display-media');
+const { buildCombinedNotesPrompt, buildNotesPrompt, buildPartialNotesPrompt, chunkTranscript } = require('./src/notes');
+const { TranscriptBuffer } = require('./src/transcript-buffer');
 
 if (process.platform === 'darwin') {
   app.commandLine.appendSwitch('enable-features', 'MacLoopbackAudioForScreenShare,MacSckSystemAudioLoopbackOverride');
@@ -41,8 +44,7 @@ let permWin = null;
 const state = { capturing: false, busy: false, transcribing: { you: false, them: false } };
 let sttDisabled = false;
 const buffers = { you: [], them: [] };
-const transcript = [];
-const MAX_TRANSCRIPT_TURNS = 200;
+const transcript = new TranscriptBuffer();
 const FLUSH_MS = 900;
 const STREAM_INACTIVITY_MS = 25000;
 const MIN_BYTES = Math.floor(16000 * 2 * 0.12);
@@ -80,7 +82,6 @@ const ringBuffers = {
 
 function pushTranscript(turn) {
   transcript.push(turn);
-  if (transcript.length > MAX_TRANSCRIPT_TURNS) transcript.splice(0, transcript.length - MAX_TRANSCRIPT_TURNS);
 }
 
 function send(channel, data) { if (win && !win.isDestroyed()) win.webContents.send(channel, data); }
@@ -451,6 +452,49 @@ async function setCapturing(active) {
   return false;
 }
 
+async function streamWithInactivityTimeout({ llm, system, built, imageDataUrl, maxTokens, signal, onToken }) {
+  const streamAbort = new AbortController();
+  const relayAbort = () => streamAbort.abort();
+  signal.addEventListener('abort', relayAbort, { once: true });
+
+  let settled = false;
+  let watchdog = null;
+  let rearm = () => {};
+  const stalled = new Promise((_resolve, reject) => {
+    rearm = () => {
+      clearTimeout(watchdog);
+      watchdog = setTimeout(() => {
+        streamAbort.abort();
+        reject(new Error('The model stopped responding. Please try again.'));
+      }, STREAM_INACTIVITY_MS);
+    };
+    rearm();
+  });
+  const streamOptions = {
+    system,
+    turns: [{ role: 'user', text: built }],
+    imageDataUrl,
+    signal: streamAbort.signal,
+    onToken: (token) => {
+      if (settled || signal.aborted) return;
+      rearm();
+      onToken(token);
+    }
+  };
+  if (maxTokens) streamOptions.maxTokens = maxTokens;
+
+  try {
+    return await Promise.race([
+      llm.stream(streamOptions),
+      stalled
+    ]);
+  } finally {
+    settled = true;
+    clearTimeout(watchdog);
+    signal.removeEventListener('abort', relayAbort);
+  }
+}
+
 async function runFeature(mode, userText) {
   if (activeLlmAbort) {
     activeLlmAbort.abort();
@@ -465,14 +509,14 @@ async function runFeature(mode, userText) {
     return;
   }
   state.busy = true;
-  let streamSettled = false;
   try {
     const settings = store.getSettings();
     const llm = createLLM(settings);
+    const transcriptTurns = transcript.snapshot();
     const userBubble = def.userBubble !== null
       ? def.userBubble
       : (mode === 'ask' ? userText : mode === 'answerThis' ? `"${(userText || '').slice(0, 60)}${userText && userText.length > 60 ? '…' : ''}"` : null);
-    const category = mode !== 'leetcode' ? detectCategory(transcript) : null;
+    const category = mode !== 'leetcode' ? detectCategory(transcriptTurns) : null;
     send('llm:start', { userBubble, small: !!def.small, category });
 
     if (!llm.ready) {
@@ -499,38 +543,46 @@ async function runFeature(mode, userText) {
     }
 
     const settingsForPrompt = store.getSettings();
-    const contextBlock = buildInterviewContext(settingsForPrompt, mode, transcript);
-    const system = def.buildSystem ? def.buildSystem(contextBlock, settingsForPrompt.aiRules || '') : (def.system || '');
-    const built = def.build({ transcript, userText: userText || '' });
+    const contextBlock = buildInterviewContext(settingsForPrompt, mode, transcriptTurns);
+    const system = mode === 'recap'
+      ? 'Turn the supplied meeting or interview transcript into accurate, useful notes. Follow the exact requested headings, connect related concepts, preserve stated owners and deadlines, and never invent details.'
+      : (def.buildSystem ? def.buildSystem(contextBlock, settingsForPrompt.aiRules || '') : (def.system || ''));
+    let built = def.build({ transcript: transcriptTurns, userText: userText || '' });
 
-    let watchdog = null;
-    let rearm = () => {};
-    const stalled = new Promise((_res, reject) => {
-      rearm = () => {
-        clearTimeout(watchdog);
-        watchdog = setTimeout(() => reject(new Error('the model stopped responding (timed out). Please try again.')), STREAM_INACTIVITY_MS);
-      };
-      rearm();
-    });
-    try {
-      await Promise.race([
-        llm.stream({
-          system,
-          turns: [{ role: 'user', text: built }],
-          imageDataUrl,
-          signal: abortController.signal,
-          onToken: (t) => {
-            if (streamSettled || abortController.signal.aborted) return;
-            rearm();
-            send('llm:token', { text: t });
-          }
-        }),
-        stalled
-      ]);
-    } finally {
-      streamSettled = true;
-      clearTimeout(watchdog);
+    if (mode === 'recap') {
+      const chunks = chunkTranscript(transcriptTurns);
+      if (chunks.length <= 1) {
+        built = buildNotesPrompt(transcriptTurns);
+      } else {
+        const partialNotes = [];
+        for (let index = 0; index < chunks.length; index++) {
+          send('status', { message: `Preparing notes ${index + 1} of ${chunks.length}...` });
+          let partial = '';
+          await streamWithInactivityTimeout({
+            llm,
+            system: 'Extract accurate meeting notes from the supplied transcript section. Use only stated facts.',
+            built: buildPartialNotesPrompt(chunks[index], index + 1, chunks.length),
+            imageDataUrl: null,
+            maxTokens: 700,
+            signal: abortController.signal,
+            onToken: (token) => { partial += token; }
+          });
+          partialNotes.push(partial);
+        }
+        built = buildCombinedNotesPrompt(partialNotes);
+        send('status', { message: 'Organizing final notes...' });
+      }
     }
+
+    await streamWithInactivityTimeout({
+      llm,
+      system,
+      built,
+      imageDataUrl,
+      maxTokens: mode === 'recap' ? 2200 : undefined,
+      signal: abortController.signal,
+      onToken: (text) => send('llm:token', { text })
+    });
     if (!abortController.signal.aborted) {
       send('llm:done', {});
     }
@@ -538,7 +590,6 @@ async function runFeature(mode, userText) {
     if (abortController.signal.aborted || (e && e.name === 'AbortError')) return;
     send('llm:error', { message: e && e.message ? e.message : String(e) });
   } finally {
-    streamSettled = true;
     if (activeLlmAbort === abortController) activeLlmAbort = null;
     state.busy = false;
   }
@@ -600,7 +651,7 @@ ipcMain.handle('platform:info', () => ({
   winSupportsContentProtection: WIN_SUPPORTS_CONTENT_PROTECTION
 }));
 ipcMain.handle('transcript:clear', () => {
-  transcript.splice(0, transcript.length);
+  transcript.clear();
   return { ok: true };
 });
 ipcMain.on('ask', (_e, payload) => runFeature(payload.mode, payload.text));
@@ -726,13 +777,10 @@ function launchApp() {
   session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => cb(allowMedia(permission)));
   session.defaultSession.setPermissionCheckHandler((_wc, permission) => allowMedia(permission));
 
-  session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
+  session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
     desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
-      if (!sources.length) return callback();
-      const request = { video: sources[0] };
-      if (isWindows) request.audio = true;
-      else request.audio = 'loopback';
-      callback(request);
+      const streams = buildDisplayMediaStreams(sources[0], request.audioRequested);
+      callback(streams || undefined);
     }).catch(() => callback());
   }, { useSystemPicker: false });
 

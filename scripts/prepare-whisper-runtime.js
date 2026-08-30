@@ -5,7 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const extractZip = require('extract-zip');
+const extractZip = require('@electron-internal/extract-zip');
 const tar = require('tar');
 const {
   WHISPER_CPP_VERSION,

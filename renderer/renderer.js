@@ -24,6 +24,7 @@
   let settings = null;
   let whisperOverview = null;
   let busy = false;
+  let captureActive = false;
   let aiEl = null;
   let caretEl = null;
   let responseCount = 0;
@@ -531,7 +532,18 @@
   ghostPilot.on('hide:toggle', toggleHide);
 
   $('#stop-btn').addEventListener('click', async () => {
-    await ghostPilot.captureToggle();
+    if (captureActive) {
+      await ghostPilot.captureToggle();
+      return;
+    }
+
+    const mediaStarts = [startMic(), startSystemAudio()];
+    const active = await ghostPilot.captureToggle();
+    await Promise.allSettled(mediaStarts);
+    if (!active) {
+      stopMic();
+      stopSystemAudio();
+    }
   });
 
   const clearTranscriptBtn = document.getElementById('clear-transcript-btn');
@@ -577,8 +589,9 @@
         showStatus('No microphone audio track was available. Check Windows Sound settings for a working default input device, then try again.');
         return;
       }
-      ghostPilot.log('mic stream started: track=' + (track.label || '(no label ,  permission may be stale)') + ' muted=' + track.muted);
+      ghostPilot.log('mic stream started: track=' + (track.label || '(no label, permission may be stale)') + ' muted=' + track.muted);
       audioCtx = new AudioContext({ sampleRate: 16000 });
+      if (audioCtx.state === 'suspended') await audioCtx.resume();
 
       try {
         await audioCtx.audioWorklet.addModule('audio-worklet-processor.js');
@@ -587,7 +600,12 @@
         micWorklet.port.onmessage = (e) => {
           ghostPilot.micPcm(e.data);
         };
+        const sink = audioCtx.createGain();
+        sink.gain.value = 0;
         source.connect(micWorklet);
+        micWorklet.connect(sink);
+        sink.connect(audioCtx.destination);
+        micWorklet._sink = sink;
 
         ghostPilot.log('mic AudioWorklet processor attached');
       } catch (workletErr) {
@@ -608,7 +626,7 @@
     } catch (err) {
       const message = err && err.message ? err.message : String(err);
       const name = err && err.name;
-      ghostPilot.log('mic error: ' + name + ' ,  ' + message);
+      ghostPilot.log('mic error: ' + name + ': ' + message);
 
       if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
         showStatus('No microphone was found. Plug one in, or pick a default input device in your OS sound settings, then try again.');
@@ -617,7 +635,7 @@
           ? 'Microphone permission was denied. Settings → Privacy & security → Microphone → allow GhostPilot, then try again.'
           : 'Microphone permission was denied. System Settings → Privacy & Security → Microphone → allow GhostPilot, then try again.');
       } else if (name === 'NotReadableError' || name === 'TrackStartError') {
-        showStatus('The microphone could not be started ,  another application may be using it exclusively. Close other apps using the mic and try again.');
+        showStatus('The microphone could not be started. Another application may be using it exclusively. Close other apps using the mic and try again.');
       } else {
         showStatus('Microphone capture could not be started. Check your mic permissions and try again.');
       }
@@ -629,6 +647,7 @@
         micWorklet.proc.disconnect(); micWorklet.proc.onaudioprocess = null;
         micWorklet.node.disconnect(); micWorklet.sink.disconnect();
       } else {
+        if (micWorklet._sink) micWorklet._sink.disconnect();
         micWorklet.disconnect();
       }
       micWorklet = null;
@@ -657,12 +676,20 @@
         ghostPilot.log('system audio: no loopback track on this platform');
         stream.getTracks().forEach((t) => t.stop());
         showStatus(ghostPilot.platform === 'win32'
-          ? 'No system-audio loopback track detected. Make sure "Share audio" is checked in the screen share dialog, and that your audio device is not in exclusive mode.'
-          : 'No system-audio loopback track detected. Meeting audio needs macOS 14.4+ ,  your screen and microphone still work.');
+          ? 'Windows did not provide a meeting-audio track. Check that your default output device is working and is not in exclusive mode, then try again.'
+          : 'No meeting-audio track was available. Meeting audio needs macOS 14.4 or later. Your screen and microphone can still work.');
         return;
       }
       sysStream = stream;
       sysCtx = new AudioContext({ sampleRate: 16000 });
+      if (sysCtx.state === 'suspended') await sysCtx.resume();
+      tracks.forEach((track) => {
+        track.addEventListener('ended', () => {
+          if (sysStream !== stream) return;
+          stopSystemAudio();
+          if (captureActive) showStatus('Meeting audio stopped. Click Stop, then Listen to reconnect it.');
+        }, { once: true });
+      });
 
       try {
         await sysCtx.audioWorklet.addModule('audio-worklet-processor.js');
@@ -671,7 +698,12 @@
         sysWorklet.port.onmessage = (e) => {
           ghostPilot.systemPcm(e.data);
         };
+        const sink = sysCtx.createGain();
+        sink.gain.value = 0;
         source.connect(sysWorklet);
+        sysWorklet.connect(sink);
+        sink.connect(sysCtx.destination);
+        sysWorklet._sink = sink;
         ghostPilot.log('system audio: AudioWorklet capturing loopback');
       } catch (workletErr) {
 
@@ -690,8 +722,20 @@
       }
     } catch (err) {
       const message = err && err.message ? err.message : String(err);
-      ghostPilot.log('system audio error: ' + message);
-      showStatus('Meeting audio could not be started. Grant screen/audio access to GhostPilot and try again.');
+      const name = err && err.name;
+      ghostPilot.log('system audio error: ' + name + ': ' + message);
+      stopSystemAudio();
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError') {
+        showStatus(isWindows
+          ? 'Windows blocked meeting audio. Allow desktop microphone access, restart GhostPilot, and try again.'
+          : 'Meeting audio permission was denied. Allow screen and audio access to GhostPilot, then try again.');
+      } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+        showStatus('Meeting audio could not open the default output device. Close apps using exclusive audio and try again.');
+      } else if (name === 'AbortError') {
+        showStatus('Meeting audio startup was cancelled. Click Listen to try again.');
+      } else {
+        showStatus('Meeting audio could not start. Check your default output device, restart GhostPilot, and try again.');
+      }
     } finally {
       sysStarting = false;
     }
@@ -702,6 +746,7 @@
         sysWorklet.proc.disconnect(); sysWorklet.proc.onaudioprocess = null;
         sysWorklet.node.disconnect(); sysWorklet.sink.disconnect();
       } else {
+        if (sysWorklet._sink) sysWorklet._sink.disconnect();
         sysWorklet.disconnect();
       }
       sysWorklet = null;
@@ -872,6 +917,7 @@
   }
 
   ghostPilot.on('capture:state', async ({ active, streaming, mode }) => {
+    captureActive = active;
     setLiveDotState(active ? 'idle' : 'off');
     $('#stop-btn').classList.toggle('active', active);
     $('#stop-btn').setAttribute('aria-pressed', String(active));
@@ -1628,6 +1674,7 @@
     }
 
     const st = await ghostPilot.captureState();
+    captureActive = st.active;
     $('#live-dot').classList.toggle('off', !st.active);
     $('#stop-btn').classList.toggle('active', st.active);
     $('#stop-btn').setAttribute('aria-pressed', String(st.active));

@@ -1,8 +1,8 @@
 {
   "name": "ghostpilot",
   "productName": "GhostPilot",
-  "version": "1.0.1",
-  "description": "Open-source cross-platform invisible AI overlay: three separate inputs (screen, mic, system audio) into an LLM. A Cluely-style copilot for meetings and coding problems.",
+  "version": "1.1.0",
+  "description": "Open-source desktop copilot for meetings, interviews, and coding with separate screen, microphone, and meeting-audio context.",
   "license": "MIT",
   "author": "Guram Melikidze",
   "homepage": "https://github.com/z12ob/GhostPilot#readme",
@@ -17,7 +17,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test test/*.test.js",
-    "postinstall": "node scripts/rename-electron.js",
+    "postinstall": "node node_modules/electron/install.js && node scripts/rename-electron.js",
     "prepare:whisper": "node scripts/prepare-whisper-runtime.js",
     "verify:whisper-runtime": "node scripts/verify-whisper-runtime.js",
     "pack": "electron-builder --dir",
@@ -37,9 +37,9 @@
     "cross-platform"
   ],
   "devDependencies": {
-    "electron": "33.2.1",
+    "@electron-internal/extract-zip": "^1.0.1",
+    "electron": "44.0.0",
     "electron-builder": "^26.15.3",
-    "extract-zip": "^2.0.1",
     "resedit": "^3.0.2",
     "tar": "^7.5.22"
   },

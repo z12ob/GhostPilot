@@ -10,7 +10,7 @@ const canNotarize =
 module.exports = {
   appId: "com.ghostpilot.app",
   productName: "GhostPilot",
-  asar: false,
+  asar: true,
   publish: null,
   artifactName: "${productName}-${version}-${os}-${arch}.${ext}",
 
