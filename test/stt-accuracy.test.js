@@ -24,6 +24,19 @@ test('buildVocabPrompt seeds base vocab and resume proper nouns, capped', () => 
   assert.ok(buildVocabPrompt({ resumeText: 'Xyzzy '.repeat(4000) }).length <= 850);
 });
 
+test('buildVocabPrompt includes meeting and class vocabulary', () => {
+  const prompt = buildVocabPrompt({
+    workMode: 'meeting',
+    profileText: 'Distributed systems engineer',
+    meetingTitle: 'Raft Consensus Workshop',
+    meetingContext: 'Paxos Quorum Kubernetes'
+  });
+
+  assert.match(prompt, /Raft/);
+  assert.match(prompt, /Paxos/);
+  assert.match(prompt, /Quorum/);
+});
+
 test('Deepgram accumulates is_final segments into one turn at speech_final', () => {
   const finals = [];
   const d = new DeepgramStreamingSTT('k', { onTranscript: (t) => finals.push(t) });

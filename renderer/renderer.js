@@ -45,6 +45,27 @@
   let rawTurnCount = 0;
   const MAX_RESPONSES = 20;
 
+  const WORK_MODE_PRESENTATION = {
+    interview: {
+      summary: 'Interview answers use your resume and preparation.',
+      scope: 'Screen is optional for Assist and typed questions.',
+      actions: {
+        say: ['What should I say?', 'Draft an answer to the latest interview question'],
+        assist: ['Assist', 'Analyze the transcript and optional screen to help right now'],
+        followup: ['Follow-up', 'Suggest questions to ask the interviewer']
+      }
+    },
+    meeting: {
+      summary: 'Meeting and class help uses your topic, goal, and live transcript.',
+      scope: 'Live actions use the transcript. Screen adds optional visual context.',
+      actions: {
+        say: ['Draft response', 'Draft a useful response based on the live transcript'],
+        assist: ['Brief me', 'Explain what matters now using the transcript and optional screen'],
+        followup: ['Questions', 'Find important questions raised by the transcript']
+      }
+    }
+  };
+
   const messages = $('#messages');
 
   function esc(s) { return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
@@ -183,6 +204,76 @@
   const input = $('#input');
   const placeholder = $('#placeholder');
   const composer = $('#composer');
+
+  function currentWorkMode() {
+    return settings?.workMode === 'meeting' ? 'meeting' : 'interview';
+  }
+
+  function renderWorkMode() {
+    if (!settings) return;
+    const mode = currentWorkMode();
+    const presentation = WORK_MODE_PRESENTATION[mode];
+    document.querySelectorAll('button[data-work-mode]').forEach((button) => {
+      const selected = button.dataset.workMode === mode;
+      button.classList.toggle('on', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    });
+    document.querySelectorAll('[data-work-mode-context]').forEach((section) => {
+      section.classList.toggle('hidden', section.dataset.workModeContext !== mode);
+    });
+    document.querySelectorAll('[data-work-mode-only="interview"]').forEach((element) => {
+      element.classList.toggle('hidden', mode !== 'interview');
+    });
+
+    const activeRestrictedTab = document.querySelector('.s-tab.on[data-work-mode-only="interview"]');
+    if (mode === 'meeting' && activeRestrictedTab) {
+      document.querySelectorAll('.s-tab').forEach((tab) => {
+        tab.classList.remove('on');
+        tab.setAttribute('aria-selected', 'false');
+      });
+      document.querySelectorAll('.s-tab-pane').forEach((pane) => pane.classList.add('hidden'));
+      $('#tab-profile').classList.add('on');
+      $('#tab-profile').setAttribute('aria-selected', 'true');
+      $('#pane-profile').classList.remove('hidden');
+    }
+
+    $('#work-mode-summary').textContent = presentation.summary;
+    $('#scope-note').textContent = presentation.scope;
+    Object.entries(presentation.actions).forEach(([action, [label, title]]) => {
+      const button = document.querySelector(`.act[data-mode="${action}"]`);
+      if (!button) return;
+      const labelElement = button.querySelector('.action-label');
+      if (labelElement) labelElement.textContent = label;
+      button.title = title;
+      button.setAttribute('aria-label', title);
+    });
+
+    const key = isWindows ? '<span class="keycap">Ctrl</span><span class="keycap">⏎</span>' : '<span class="keycap">⌘</span><span class="keycap">⏎</span>';
+    placeholder.innerHTML = mode === 'meeting'
+      ? `Ask about the meeting, class, or screen, or use ${key} for Brief me`
+      : `Ask about your screen or interview, or use ${key} for Assist`;
+    updatePrepStatus();
+  }
+
+  async function setWorkMode(mode) {
+    if (!settings) return;
+    const previousMode = currentWorkMode();
+    const nextMode = mode === 'meeting' ? 'meeting' : 'interview';
+    if (nextMode === previousMode) return;
+    settings.workMode = nextMode;
+    renderWorkMode();
+    try {
+      settings = await ghostPilot.settingsSet({ workMode: nextMode });
+    } catch {
+      settings.workMode = previousMode;
+      renderWorkMode();
+      showToast('Could not change the scenario. Try again.', 3000);
+    }
+  }
+
+  document.querySelectorAll('button[data-work-mode]').forEach((button) => {
+    button.addEventListener('click', () => { void setWorkMode(button.dataset.workMode); });
+  });
 
   let inputFromSTT = false;
   let sttFillTimer = null;
@@ -833,7 +924,10 @@
     const title = document.getElementById('meeting-complete-title');
     const detail = document.getElementById('meeting-complete-detail');
     const notesButton = document.getElementById('generate-notes-btn');
-    if (title) title.textContent = currentSessionHasNotes ? 'Meeting notes saved' : 'Meeting saved';
+    const isInterviewSession = currentSession?.kind === 'interview';
+    if (title) title.textContent = currentSessionHasNotes
+      ? (isInterviewSession ? 'Interview notes saved' : 'Meeting / class notes saved')
+      : (isInterviewSession ? 'Interview saved' : 'Meeting / class saved');
     if (detail) detail.textContent = currentSessionHasNotes
       ? `Notes and ${rawTurnCount} raw turns are stored locally.`
       : `Your ${rawTurnCount} raw transcript turns are safe on this device.`;
@@ -1292,12 +1386,27 @@
   if (aiRulesEl) aiRulesEl.addEventListener('input', updateAiRulesCounter);
   function updatePrepStatus() {
     if (!settings) return;
-    const fields = {
-      resume:  !!(settings.resumeText && settings.resumeText.trim()),
-      jd:      !!(settings.jobDescription && settings.jobDescription.trim()),
-      stories: !!(settings.starStories && settings.starStories.trim()),
-      salary:  !!(settings.salaryTarget && settings.salaryTarget.trim())
-    };
+    const meetingMode = currentWorkMode() === 'meeting';
+    const fieldConfig = meetingMode
+      ? [
+          ['profile', 'Profile', settings.profileText],
+          ['topic', 'Topic', settings.meetingTitle],
+          ['goal', 'Goal', settings.meetingGoal],
+          ['briefing', 'Briefing', settings.meetingContext]
+        ]
+      : [
+          ['resume', 'Resume', settings.resumeText],
+          ['jd', 'Job description', settings.jobDescription],
+          ['stories', 'STAR stories', settings.starStories],
+          ['salary', 'Salary', settings.salaryTarget]
+        ];
+    const fields = Object.fromEntries(fieldConfig.map(([key, _label, value]) => [key, !!String(value || '').trim()]));
+    const items = [...document.querySelectorAll('#prep-status .prep-item')];
+    items.forEach((element, index) => {
+      const [key, label] = fieldConfig[index];
+      element.dataset.field = key;
+      element.textContent = label;
+    });
     document.querySelectorAll('#prep-status .prep-item').forEach((el) => {
       const loaded = fields[el.dataset.field];
       el.classList.toggle('loaded', loaded);
@@ -1456,6 +1565,11 @@
     $('#whisper-language').value = localWhisper.language || 'auto';
     $('#whisper-threads').value = Number(localWhisper.threads) || 0;
 
+    $('#profile-text').value = settings.profileText || '';
+    $('#meeting-title').value = settings.meetingTitle || '';
+    $('#meeting-goal').value = settings.meetingGoal || '';
+    $('#meeting-context').value = settings.meetingContext || '';
+    $('#meeting-role').value = settings.meetingRole || '';
     $('#resume-text').value = settings.resumeText || '';
     $('#job-description').value = settings.jobDescription || '';
 
@@ -1469,6 +1583,7 @@
 
     $('#salary-target').value = settings.salaryTarget || '';
     $('#questions-to-ask').value = settings.questionsToAsk || '';
+    renderWorkMode();
   }
 
   const uploadResumeBtn = document.getElementById('upload-resume-btn');
@@ -1496,12 +1611,19 @@
     const selectedSttProvider = settings.sttProvider || 'auto';
     const automaticStt = k.deepgram ? 'Deepgram (streaming)' : (k.openai ? 'OpenAI Realtime' : (k.groq ? 'Groq Whisper' : (k.gemini ? 'Gemini Live' : 'none')));
     const stt = selectedSttProvider === 'auto' ? automaticStt : selectedSttProvider;
-    const ready = [
-      settings.resumeText ? '✓ resume' : null,
-      settings.jobDescription ? '✓ JD' : null,
-      settings.starStories ? '✓ stories' : null,
-      settings.salaryTarget ? '✓ salary' : null
-    ].filter(Boolean);
+    const ready = currentWorkMode() === 'meeting'
+      ? [
+          settings.profileText ? '✓ profile' : null,
+          settings.meetingTitle ? '✓ topic' : null,
+          settings.meetingGoal ? '✓ goal' : null,
+          settings.meetingContext ? '✓ briefing' : null
+        ].filter(Boolean)
+      : [
+          settings.resumeText ? '✓ resume' : null,
+          settings.jobDescription ? '✓ JD' : null,
+          settings.starStories ? '✓ stories' : null,
+          settings.salaryTarget ? '✓ salary' : null
+        ].filter(Boolean);
     return `${labels[settings.provider] || settings.provider} · STT: ${stt}` + (ready.length ? ' · ' + ready.join(' · ') : '');
   }
 
@@ -1690,6 +1812,12 @@
     settings.localWhisper.language = $('#whisper-language').value || 'auto';
     settings.localWhisper.threads = Math.max(0, Math.min(64, Number.parseInt($('#whisper-threads').value, 10) || 0));
 
+    settings.workMode = currentWorkMode();
+    settings.profileText = $('#profile-text').value.trim();
+    settings.meetingTitle = $('#meeting-title').value.trim();
+    settings.meetingGoal = $('#meeting-goal').value.trim();
+    settings.meetingContext = $('#meeting-context').value.trim();
+    settings.meetingRole = $('#meeting-role').value.trim();
     settings.resumeText = $('#resume-text').value.trim();
     settings.jobDescription = $('#job-description').value.trim();
 
@@ -1718,10 +1846,12 @@
 
   function showExample() {
     clearMessages();
-    addUserBubble('What should I say?');
+    addUserBubble(currentWorkMode() === 'meeting' ? 'Brief me' : 'What should I say?');
     const ai = document.createElement('div');
     ai.className = 'ai-text';
-    ai.textContent = '“A discounted cash flow model values a company by projecting future free cash flows and discounting them to present value using the weighted average cost of capital.”';
+    ai.textContent = currentWorkMode() === 'meeting'
+      ? 'Start listening, then use Brief me for a concise explanation of the latest discussion, Draft response for words you can say, or Questions for unresolved points.'
+      : 'Start listening, then use What should I say? for a direct answer, Assist for transcript and screen-aware help, or Follow-up for questions to ask.';
     messages.appendChild(ai);
   }
 
@@ -1791,7 +1921,7 @@
     '#settings-scrim',
     '#onboard-scrim',
     '#quit-confirm-scrim',
-    '.resize-hint'
+    '.resize-zone'
   ];
   let regionUpdateFrame = null;
   function publishInteractiveRegions() {
@@ -1819,23 +1949,46 @@
   });
   scheduleInteractiveRegionUpdate();
 
-  const resizeHint = document.querySelector('.resize-hint');
-  if (resizeHint) {
-    resizeHint.addEventListener('pointerdown', (event) => {
+  const dragPill = document.querySelector('.drag-pill');
+  if (dragPill) {
+    const endMove = (event) => {
+      if (event && dragPill.hasPointerCapture(event.pointerId)) dragPill.releasePointerCapture(event.pointerId);
+      dragPill.classList.remove('dragging');
+      ghostPilot.moveEnd(event ? { screenX: event.screenX, screenY: event.screenY } : null);
+    };
+    dragPill.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
       event.preventDefault();
-      resizeHint.setPointerCapture(event.pointerId);
-      ghostPilot.resizeStart({ screenX: event.screenX, screenY: event.screenY });
+      dragPill.setPointerCapture(event.pointerId);
+      dragPill.classList.add('dragging');
+      ghostPilot.moveStart({ screenX: event.screenX, screenY: event.screenY });
     });
-    resizeHint.addEventListener('pointermove', (event) => {
-      if (!resizeHint.hasPointerCapture(event.pointerId)) return;
+    dragPill.addEventListener('pointermove', (event) => {
+      if (!dragPill.hasPointerCapture(event.pointerId)) return;
+      ghostPilot.moveTo({ screenX: event.screenX, screenY: event.screenY });
+    });
+    dragPill.addEventListener('pointerup', endMove);
+    dragPill.addEventListener('pointercancel', endMove);
+  }
+
+  document.querySelectorAll('.resize-zone').forEach((resizeZone) => {
+    const endResize = (event) => {
+      if (event && resizeZone.hasPointerCapture(event.pointerId)) resizeZone.releasePointerCapture(event.pointerId);
+      ghostPilot.resizeEnd(event ? { screenX: event.screenX, screenY: event.screenY } : null);
+    };
+    resizeZone.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      resizeZone.setPointerCapture(event.pointerId);
+      ghostPilot.resizeStart({ screenX: event.screenX, screenY: event.screenY }, resizeZone.dataset.resizeEdge);
+    });
+    resizeZone.addEventListener('pointermove', (event) => {
+      if (!resizeZone.hasPointerCapture(event.pointerId)) return;
       ghostPilot.resizeTo({ screenX: event.screenX, screenY: event.screenY });
     });
-    resizeHint.addEventListener('pointerup', (event) => {
-      if (resizeHint.hasPointerCapture(event.pointerId)) resizeHint.releasePointerCapture(event.pointerId);
-      ghostPilot.resizeEnd();
-    });
-    resizeHint.addEventListener('pointercancel', () => ghostPilot.resizeEnd());
-  }
+    resizeZone.addEventListener('pointerup', endResize);
+    resizeZone.addEventListener('pointercancel', endResize);
+  });
 
   const obScrim = $('#onboard-scrim');
   const permissionHelp = isWindows
@@ -1936,7 +2089,7 @@
     if (sayHintEl) sayHintEl.textContent = isWindows ? 'Ctrl+Shift+↵' : '⌘⇧↵';
     if (assistHintEl) assistHintEl.textContent = isWindows ? 'Ctrl+↵' : '⌘↵';
 
-    updatePrepStatus();
+    renderWorkMode();
 
     updateSmartTooltip();
 
@@ -1949,10 +2102,6 @@
 
     renderSessionSnapshot(await ghostPilot.sessionGet());
     renderUpdateState(await ghostPilot.updateState());
-
-    if (isWindows) {
-      placeholder.innerHTML = 'Ask about your screen or conversation, or <span class="keycap">Ctrl</span><span class="keycap">⏎</span> for Assist';
-    }
 
     const st = await ghostPilot.captureState();
     captureActive = st.active;

@@ -116,6 +116,40 @@ test('meeting controls distinguish capture, notes, screen use, and question send
   assert.match(renderer, /Stop and save/);
   assert.match(renderer, /notesButton\.disabled = active/);
   assert.match(renderer, /meetingActions\.classList\.toggle\('hidden'/);
+  assert.match(renderer, /currentSession\?\.kind/);
+  assert.match(renderer, /Interview saved/);
+});
+
+test('overlay exposes two scenario modes with mode-aware live actions', () => {
+  const html = read('renderer/index.html');
+  const renderer = read('renderer/renderer.js');
+
+  assert.match(html, /id="work-mode-switch"/);
+  assert.match(html, /data-work-mode="interview"/);
+  assert.match(html, /data-work-mode="meeting"/);
+  assert.match(html, /id="profile-text"/);
+  assert.match(html, /id="meeting-title"/);
+  assert.match(html, /id="meeting-context"/);
+  assert.match(renderer, /function setWorkMode/);
+  assert.match(renderer, /Draft response/);
+  assert.match(renderer, /Brief me/);
+  assert.match(renderer, /Questions/);
+});
+
+test('drag and resize use explicit pointer interactions across all window edges', () => {
+  const html = read('renderer/index.html');
+  const renderer = read('renderer/renderer.js');
+  const main = read('main.js');
+
+  assert.match(html, /class="drag-pill no-drag"/);
+  assert.equal((html.match(/data-resize-edge=/g) || []).length, 8);
+  assert.match(renderer, /ghostPilot\.moveStart/);
+  assert.match(renderer, /ghostPilot\.moveTo/);
+  assert.match(renderer, /ghostPilot\.moveEnd/);
+  assert.match(renderer, /querySelectorAll\('\.resize-zone'\)/);
+  assert.match(main, /function updateWindowInteraction/);
+  assert.match(main, /screen\.getCursorScreenPoint\(\)/);
+  assert.match(main, /if \(moveState \|\| resizeState\)[\s\S]*updateWindowInteraction\(\)/);
 });
 
 test('live transcript exposes saved raw text actions', () => {

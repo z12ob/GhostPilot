@@ -25,7 +25,7 @@ test('release builds generate and upload GitHub update metadata without publishi
   const workflow = read('.github/workflows/release.yml');
 
   assert.deepEqual(builder.publish, [{ provider: 'github', owner: 'z12ob', repo: 'GhostPilot' }]);
-  assert.equal(pkg.version, '1.2.0');
+  assert.equal(pkg.version, '1.3.0');
   assert.ok(pkg.dependencies['electron-updater']);
   assert.match(workflow, /dist\/latest\.yml/);
   assert.match(workflow, /dist\/latest-linux\.yml/);

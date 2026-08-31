@@ -195,8 +195,7 @@ function buildInterviewContext(settings, mode, transcript) {
         );
       } else {
         blocks.push(
-          '(No STAR stories provided ,  construct a plausible story from the candidate\'s experience above. ' +
-          'Be specific and grounded, avoid generic statements.)'
+          '(No STAR stories are saved. Do not invent one. Use only supported experience, or provide a concise answer structure that the user can complete.)'
         );
       }
       if (workStyle) blocks.push('Work Style / Values:\n' + clip(workStyle, 400));

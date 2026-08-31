@@ -25,6 +25,17 @@ test('persists raw transcript turns in readable and structured files', () => {
   assert.match(restored.transcriptText, /Meeting: Next question/);
 });
 
+test('stores the selected scenario and supplied session title', () => {
+  const { store } = createStore();
+  const session = store.startSession(1000, { kind: 'interview', title: 'Backend interview' });
+
+  assert.equal(session.kind, 'interview');
+  assert.equal(session.title, 'Backend interview');
+  const metadata = JSON.parse(fs.readFileSync(path.join(session.directory, 'session.json'), 'utf8'));
+  assert.equal(metadata.kind, 'interview');
+  assert.equal(metadata.title, 'Backend interview');
+});
+
 test('preserves an interrupted session and starts a new recording separately', () => {
   const { rootDirectory, store } = createStore();
   const interrupted = store.startSession(1_700_000_000_000);

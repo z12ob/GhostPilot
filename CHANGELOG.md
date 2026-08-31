@@ -8,6 +8,21 @@ GhostPilot is a local-first Electron overlay that reads screen, microphone, and 
 
 ## 31-Aug-2026
 
+**v1.3.0 scenario-aware live assistance**
+
+- Added separate Interview and Meeting / Class scenarios throughout the overlay, settings, prompts, and saved sessions.
+- Added shared profile context for both scenarios, interview-only preparation fields, and focused meeting topic, goal, briefing, and role fields.
+- Turned the three live actions into scenario-aware tools. Interview uses What should I say, Assist, and Follow-up. Meeting / Class uses Draft response, Brief me, and Questions.
+- Made live assistance use completed transcript turns and saved context, with current-screen context when capture is available.
+- Allowed Brief me, Assist, and typed questions to continue with transcript context when screen capture is unavailable.
+- Removed interview assumptions from meeting and class prompts while preserving evidence-based interview guidance.
+- Improved speech recognition vocabulary with relevant shared and scenario-specific context.
+- Replaced the unreliable draggable region with an explicit pointer-driven drag control and faster main-process tracking.
+- Kept the toolbar reachable without forcing the complete window back inside the display after every move.
+- Added resize targets on every edge and corner, removed display-sized maximums, and kept saved custom dimensions across launches.
+- Added scenario metadata to durable transcript sessions and expanded regression coverage for prompts, context isolation, movement, resizing, session storage, and the overlay shell.
+- Expanded the automated suite from 175 to 186 passing tests.
+
 **v1.2.0 flexible overlay and automatic updates**
 
 - Rebuilt the overlay shell so the toolbar and bottom controls keep their space while long AI responses scroll inside the message area.

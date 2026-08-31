@@ -10,7 +10,8 @@ const { MODES } = require('./src/prompts');
 const { rms16 } = require('./src/wav');
 const { createStreamingSTT } = require('./src/stt-streaming');
 const { AdaptiveVAD, AudioRingBuffer } = require('./src/vad');
-const { buildInterviewContext, detectCategory } = require('./src/interview-context');
+const { detectCategory } = require('./src/interview-context');
+const { normalizeWorkMode, buildSessionContext } = require('./src/session-mode');
 const { pushPcmChunk, clearPcmBuffer } = require('./src/pcm-buffer');
 const { resolvePermissionStatus } = require('./src/permissions');
 const { buildDisplayMediaStreams } = require('./src/display-media');
@@ -18,7 +19,12 @@ const { buildCombinedNotesPrompt, buildNotesPrompt, buildPartialNotesPrompt, chu
 const { TranscriptBuffer } = require('./src/transcript-buffer');
 const { MeetingSessionStore } = require('./src/meeting-session-store');
 const { waitForIdle } = require('./src/capture-drain');
-const { clampWindowBounds, isPointInRegions } = require('./src/window-interaction');
+const {
+  clampWindowPosition,
+  isPointInRegions,
+  moveWindowBounds,
+  resizeWindowBounds
+} = require('./src/window-interaction');
 const { createUpdateManager } = require('./src/updater');
 const { autoUpdater } = require('electron-updater');
 
@@ -31,11 +37,34 @@ const { locateWhisperRuntime } = require('./src/whisper-runtime');
 const { LocalWhisperTranscriber } = require('./src/local-whisper-transcriber');
 
 let win = null;
+let moveState = null;
 let resizeState = null;
 let interactiveRegions = [];
 let mousePollingTimer = null;
 let ignoringMouse = false;
 let updateManager = null;
+
+function keepWindowInteractive() {
+  if (!win || win.isDestroyed() || !ignoringMouse) return;
+  ignoringMouse = false;
+  win.setIgnoreMouseEvents(false);
+}
+
+function updateWindowInteraction(cursor = screen.getCursorScreenPoint()) {
+  if (!win || win.isDestroyed() || !Number.isFinite(cursor?.x) || !Number.isFinite(cursor?.y)) return;
+  const display = screen.getDisplayNearestPoint(cursor);
+  if (moveState) {
+    win.setBounds(moveWindowBounds(moveState.bounds, moveState.point, cursor, display.workArea), false);
+  } else if (resizeState) {
+    win.setBounds(resizeWindowBounds(
+      resizeState.bounds,
+      resizeState.point,
+      cursor,
+      resizeState.edge,
+      display.workArea
+    ), false);
+  }
+}
 
 const shortcutState = { assist: false, say: false, leetcode: false, hide: false, quit: false };
 const isMac = process.platform === 'darwin';
@@ -114,7 +143,10 @@ function publishSessionState() {
 }
 
 function beginMeetingSession() {
-  const started = meetingSessionStore?.startSession();
+  const settings = store.getSettings();
+  const kind = normalizeWorkMode(settings.workMode);
+  const title = kind === 'meeting' ? String(settings.meetingTitle || '').trim() : '';
+  const started = meetingSessionStore?.startSession(Date.now(), { kind, title });
   transcript.clear();
   publishSessionState();
   return started;
@@ -217,13 +249,13 @@ function applyWindowProtection(targetWin) {
 function createWindow() {
   const { workArea } = screen.getPrimaryDisplay();
   const savedSettings = store.getSettings();
-  const W = Math.max(1, Math.min(savedSettings.windowWidth || 560, workArea.width));
-  const H = Math.max(1, Math.min(savedSettings.windowHeight || 500, workArea.height));
+  const W = Math.max(1, savedSettings.windowWidth || 560);
+  const H = Math.max(1, savedSettings.windowHeight || 500);
   let startX = Math.round(workArea.x + (workArea.width - W) / 2);
   let startY = workArea.y + 6;
 
   if (savedSettings.windowX !== null && savedSettings.windowY !== null) {
-    const restored = clampWindowBounds({
+    const restored = clampWindowPosition({
       x: savedSettings.windowX,
       y: savedSettings.windowY,
       width: W,
@@ -265,6 +297,11 @@ function createWindow() {
   clearInterval(mousePollingTimer);
   mousePollingTimer = setInterval(() => {
     if (!win || win.isDestroyed() || !win.isVisible()) return;
+    if (moveState || resizeState) {
+      keepWindowInteractive();
+      updateWindowInteraction();
+      return;
+    }
     if (interactiveRegions.length === 0) {
       if (ignoringMouse) {
         ignoringMouse = false;
@@ -279,7 +316,7 @@ function createWindow() {
     if (shouldIgnore === ignoringMouse) return;
     ignoringMouse = shouldIgnore;
     win.setIgnoreMouseEvents(shouldIgnore, { forward: true });
-  }, 50);
+  }, 16);
 
   applyWindowProtection(win);
   win.on('show', () => applyWindowProtection(win));
@@ -297,7 +334,7 @@ function createWindow() {
       if (win && !win.isDestroyed()) {
         const bounds = win.getBounds();
         const display = screen.getDisplayMatching(bounds);
-        const reachable = clampWindowBounds(bounds, display.workArea);
+        const reachable = clampWindowPosition(bounds, display.workArea);
         if (reachable.x !== bounds.x || reachable.y !== bounds.y || reachable.width !== bounds.width || reachable.height !== bounds.height) {
           win.setBounds(reachable, false);
         }
@@ -601,13 +638,20 @@ async function runFeature(mode, userText) {
   state.busy = true;
   try {
     const settings = store.getSettings();
+    const workMode = normalizeWorkMode(settings.workMode);
     const llm = createLLM(settings);
     const transcriptTurns = transcript.snapshot();
-    const userBubble = def.userBubble !== null
-      ? def.userBubble
+    const configuredBubble = typeof def.userBubble === 'function' ? def.userBubble(workMode) : def.userBubble;
+    const userBubble = configuredBubble !== null
+      ? configuredBubble
       : (mode === 'ask' ? userText : mode === 'answerThis' ? `"${(userText || '').slice(0, 60)}${userText && userText.length > 60 ? '…' : ''}"` : null);
-    const category = mode !== 'leetcode' ? detectCategory(transcriptTurns) : null;
+    const category = workMode === 'interview' && mode !== 'leetcode' ? detectCategory(transcriptTurns) : null;
     send('llm:start', { userBubble, small: !!def.small, category });
+
+    if (def.requiresTranscript && transcriptTurns.length === 0) {
+      send('llm:error', { message: 'No final transcript is available yet. Keep listening until speech appears, then try this action again.' });
+      return;
+    }
 
     if (!llm.ready) {
       const message = llm.configurationError || ('Complete the ' + settings.provider + ' provider settings. Model: ' + (llm.model || 'unset') + '.');
@@ -621,23 +665,30 @@ async function runFeature(mode, userText) {
         imageDataUrl = await captureScreenshot();
         if (!imageDataUrl) throw new Error('No screen source was available.');
       } catch (e) {
-        const message = process.platform === 'darwin'
-          ? 'Screen capture needs permission. Grant Screen Recording to GhostPilot in System Settings.'
-          : process.platform === 'win32'
-            ? 'Screen capture failed. Make sure GhostPilot is not blocked by Windows privacy or security software, then try again.'
-            : 'Screen capture failed. Check your desktop capture permissions, then try again.';
-        send('status', { message });
-        send('llm:error', { message });
-        return;
+        if (def.screenOptional) {
+          send('status', { message: 'Screen capture was unavailable. GhostPilot is using the transcript and saved context.' });
+        } else {
+          const message = process.platform === 'darwin'
+            ? 'Screen capture needs permission. Grant Screen Recording to GhostPilot in System Settings.'
+            : process.platform === 'win32'
+              ? 'Screen capture failed. Make sure GhostPilot is not blocked by Windows privacy or security software, then try again.'
+              : 'Screen capture failed. Check your desktop capture permissions, then try again.';
+          send('status', { message });
+          send('llm:error', { message });
+          return;
+        }
       }
     }
 
     const settingsForPrompt = store.getSettings();
-    const contextBlock = buildInterviewContext(settingsForPrompt, mode, transcriptTurns);
+    const contextBlock = buildSessionContext(settingsForPrompt, mode, transcriptTurns);
     const system = mode === 'recap'
-      ? 'Turn the supplied meeting or interview transcript into accurate, useful notes. Follow the exact requested headings, connect related concepts, preserve stated owners and deadlines, and never invent details.'
-      : (def.buildSystem ? def.buildSystem(contextBlock, settingsForPrompt.aiRules || '') : (def.system || ''));
-    let built = def.build({ transcript: transcriptTurns, userText: userText || '' });
+      ? [
+          contextBlock,
+          'Turn the supplied meeting or interview transcript into accurate, useful notes. Follow the exact requested headings, connect related concepts, preserve stated owners and deadlines, and never invent details.'
+        ].filter(Boolean).join('\n\n')
+      : (def.buildSystem ? def.buildSystem(contextBlock, settingsForPrompt.aiRules || '', workMode) : (def.system || ''));
+    let built = def.build({ transcript: transcriptTurns, userText: userText || '', workMode });
 
     if (mode === 'recap') {
       const chunks = chunkTranscript(transcriptTurns);
@@ -776,21 +827,48 @@ ipcMain.handle('update:install', () => {
   }
   return updateManager?.install() || { ok: false, message: 'No downloaded update is ready to install.' };
 });
-ipcMain.on('window:resize-start', (_event, point) => {
+ipcMain.on('window:move-start', (_event, point) => {
   if (!win || win.isDestroyed() || !Number.isFinite(point?.screenX) || !Number.isFinite(point?.screenY)) return;
-  resizeState = { ...win.getBounds(), screenX: point.screenX, screenY: point.screenY };
+  const bounds = win.getBounds();
+  resizeState = null;
+  moveState = { bounds, point: { x: point.screenX, y: point.screenY } };
+  keepWindowInteractive();
+});
+ipcMain.on('window:move-to', (_event, point) => {
+  if (!moveState || !win || win.isDestroyed() || !Number.isFinite(point?.screenX) || !Number.isFinite(point?.screenY)) return;
+  updateWindowInteraction({ x: point.screenX, y: point.screenY });
+});
+ipcMain.on('window:move-end', (_event, point) => {
+  if (Number.isFinite(point?.screenX) && Number.isFinite(point?.screenY)) {
+    updateWindowInteraction({ x: point.screenX, y: point.screenY });
+  }
+  moveState = null;
+});
+ipcMain.on('window:resize-start', (_event, point, edge) => {
+  if (!win || win.isDestroyed() || !Number.isFinite(point?.screenX) || !Number.isFinite(point?.screenY)) return;
+  if (!['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'].includes(edge)) return;
+  moveState = null;
+  resizeState = {
+    bounds: win.getBounds(),
+    point: { x: point.screenX, y: point.screenY },
+    edge
+  };
+  keepWindowInteractive();
 });
 ipcMain.on('window:resize-to', (_event, point) => {
   if (!resizeState || !win || win.isDestroyed() || !Number.isFinite(point?.screenX) || !Number.isFinite(point?.screenY)) return;
-  const display = screen.getDisplayNearestPoint({ x: point.screenX, y: point.screenY });
-  const maxWidth = Math.max(1, display.workArea.x + display.workArea.width - resizeState.x);
-  const maxHeight = Math.max(1, display.workArea.y + display.workArea.height - resizeState.y);
-  const width = Math.max(1, Math.min(maxWidth, resizeState.width + point.screenX - resizeState.screenX));
-  const height = Math.max(1, Math.min(maxHeight, resizeState.height + point.screenY - resizeState.screenY));
-  win.setSize(Math.round(width), Math.round(height), false);
+  updateWindowInteraction({ x: point.screenX, y: point.screenY });
 });
-ipcMain.on('window:resize-end', () => { resizeState = null; });
-ipcMain.on('ask', (_e, payload) => runFeature(payload.mode, payload.text));
+ipcMain.on('window:resize-end', (_event, point) => {
+  if (Number.isFinite(point?.screenX) && Number.isFinite(point?.screenY)) {
+    updateWindowInteraction({ x: point.screenX, y: point.screenY });
+  }
+  resizeState = null;
+});
+ipcMain.on('ask', (_e, payload) => {
+  if (!payload || typeof payload.mode !== 'string') return;
+  runFeature(payload.mode, typeof payload.text === 'string' ? payload.text : '');
+});
 ipcMain.on('mic:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('you', arrayBuffer); });
 ipcMain.on('system:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('them', arrayBuffer); });
 ipcMain.on('mouse:regions', (_event, regions) => {

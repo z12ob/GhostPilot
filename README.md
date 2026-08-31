@@ -21,9 +21,9 @@ Bring your own API key for OpenAI, Anthropic, Google Gemini, Azure AI Foundry, G
 ## Highlights
 
 - Separate microphone and meeting-audio channels for clearer speaker context
-- Real-time Assist and What should I say actions
+- Interview and Meeting / Class scenarios with focused context and live actions
 - Screen-aware questions and coding help
-- Interview context from a resume, job description, and personal notes
+- Shared profile context plus scenario-specific interview or meeting preparation
 - Long-session notes with a summary, cheat sheet, topics and connections, decisions, action items, open questions, and follow-up
 - Live raw transcription with copy and local session files
 - Recovery of the latest saved session after an unexpected close
@@ -59,14 +59,14 @@ Screen-share exclusion depends on the operating system and capture application. 
 
 Download the AppImage that matches your CPU:
 
-- `GhostPilot-1.2.0-linux-x86_64.AppImage`
-- `GhostPilot-1.2.0-linux-arm64.AppImage`
+- `GhostPilot-1.3.0-linux-x86_64.AppImage`
+- `GhostPilot-1.3.0-linux-arm64.AppImage`
 
 For x64 Linux:
 
 ```bash
-chmod +x GhostPilot-1.2.0-linux-x86_64.AppImage
-./GhostPilot-1.2.0-linux-x86_64.AppImage
+chmod +x GhostPilot-1.3.0-linux-x86_64.AppImage
+./GhostPilot-1.3.0-linux-x86_64.AppImage
 ```
 
 Desktop audio capture varies across Wayland, X11, PipeWire, and desktop environments.
@@ -81,8 +81,8 @@ Signed macOS downloads are not published yet. To run GhostPilot from source, use
 |---|---|
 | `GhostPilot-win-x64.exe` | Windows installer with the standard automatic update path |
 | `GhostPilot-win-x64.zip` | Portable Windows app |
-| `GhostPilot-1.2.0-linux-x86_64.AppImage` | Linux x64 app |
-| `GhostPilot-1.2.0-linux-arm64.AppImage` | Linux arm64 app |
+| `GhostPilot-1.3.0-linux-x86_64.AppImage` | Linux x64 app |
+| `GhostPilot-1.3.0-linux-arm64.AppImage` | Linux arm64 app |
 | Source code (zip) | Developers who want the tagged source snapshot |
 | Source code (tar.gz) | Developers who prefer a tar archive |
 
@@ -90,13 +90,23 @@ GitHub automatically adds the two source archives to every release. The four Gho
 
 ## Use GhostPilot in a meeting
 
-1. Set your operating system input and output devices before the call.
-2. Open GhostPilot and select **Listen**.
-3. Confirm that the panel shows **Mic on** and **Meeting audio on**. Open **Transcript** and check that both **You** and **Meeting** appear when each side speaks.
-4. Use **Assist**, **What should I say?**, or **Follow-up** when needed.
-5. At the end, select **Stop and save**. This flushes pending transcription and closes the saved session.
-6. Select **Generate notes** to create the structured summary from the complete raw transcript.
-7. Open **Transcript** to copy the raw text or open the meeting folder.
+1. Select **Meeting / Class** at the top of the overlay.
+2. Open Settings, select **Context**, and add a shared profile plus the meeting topic, goal, briefing, and your role. Only include information that will help during the session.
+3. Set your operating system input and output devices before the call.
+4. Open GhostPilot and select **Listen**.
+5. Confirm that the panel shows **Mic on** and **Meeting audio on**. Open **Transcript** and check that both **You** and **Meeting** appear when each side speaks.
+6. Use **Draft response**, **Brief me**, or **Questions** when needed.
+7. At the end, select **Stop and save**. This flushes pending transcription and closes the saved session.
+8. Select **Generate notes** to create the structured summary from the complete raw transcript.
+9. Open **Transcript** to copy the raw text or open the saved session folder.
+
+Meeting / Class actions use the saved meeting context and completed transcript turns:
+
+- **Draft response** prepares a natural contribution or reply based on what has been discussed.
+- **Brief me** explains what matters, connects ideas, and suggests a useful next contribution. It uses the current screen when screen capture is available.
+- **Questions** identifies unresolved points, assumptions, decisions, dependencies, and concepts worth asking about.
+
+Draft response and Questions need at least one completed transcript turn. Brief me can still use the transcript and saved context when screen capture is unavailable.
 
 Each meeting is stored under `%APPDATA%\GhostPilot\meetings` on Windows. A session folder contains:
 
@@ -112,17 +122,18 @@ For long sessions, GhostPilot keeps audio buffers bounded while retaining up to 
 
 Wired, USB, and Bluetooth earphones work when the meeting plays through the same active Windows output device that GhostPilot captures. In Google Meet, open **Settings > Audio**, select the intended speakers and microphone, and test the speakers before the call. Changing the output device or Bluetooth profile during a call can end loopback capture. Select **Stop and save**, set the correct device, then select **Listen** again.
 
-Listen does not continuously analyze the screen. Assist and typed screen questions capture one current screenshot when requested. Meeting transcription and Generate notes use audio and transcript context without continuous screen capture.
+Listen does not continuously analyze the screen. Assist, Brief me, and typed screen questions capture one current screenshot when requested. Meeting transcription and Generate notes use audio and transcript context without continuous screen capture.
 
 ## Use GhostPilot in an interview
 
-1. Open Settings and add your resume, job description, and interview notes.
-2. Test your microphone, meeting audio, provider, and shortcuts before the interview.
-3. Select **Listen** after joining the call.
-4. Use **What should I say?** for a suggested spoken answer or **Assist** for screen and conversation context.
-5. Use **Follow-up** to prepare relevant questions. Select **Stop and save**, then **Generate notes** to organize the discussion.
+1. Select **Interview** at the top of the overlay.
+2. Open Settings, select **Context**, and add your shared profile, resume, job description, and interview notes.
+3. Test your microphone, meeting audio, provider, and shortcuts before the interview.
+4. Select **Listen** after joining the call.
+5. Use **What should I say?** for a supported spoken answer or **Assist** for transcript, screen, and interview context.
+6. Use **Follow-up** to prepare relevant questions. Select **Stop and save**, then **Generate notes** to organize the discussion.
 
-GhostPilot can help organize your own experience and thinking. Review every suggestion before using it, and follow the interviewer's rules.
+What should I say and Follow-up need at least one completed transcript turn. Assist can still use the transcript and saved context when screen capture is unavailable. GhostPilot can help organize your own experience and thinking, but it does not invent unsupported experience. Review every suggestion before using it, and follow the interviewer's rules.
 
 ## Controls
 
@@ -133,7 +144,9 @@ GhostPilot can help organize your own experience and thinking. Review every sugg
 | Open Settings | `Ctrl+,` | `Command+,` |
 | Ask a typed question | Enter | Enter |
 
-The panel also includes Listen, What should I say?, Follow-up, Generate notes, Transcript, and a Smart model toggle. The arrow button sends only the question in the text field. It does not process the whole meeting.
+The panel also includes Listen, Generate notes, Transcript, a Smart model toggle, and three scenario-aware live actions. Interview shows What should I say?, Assist, and Follow-up. Meeting / Class shows Draft response, Brief me, and Questions. The arrow button sends only the question in the text field. It does not process the whole meeting.
+
+Drag the window from the nine-dot control. Resize from any edge or corner. GhostPilot keeps the toolbar reachable while allowing the overlay to extend beyond the active display when you choose a larger working size.
 
 ## Configuration
 

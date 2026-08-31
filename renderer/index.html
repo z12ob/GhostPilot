@@ -9,11 +9,11 @@
 <body>
   <div id="app">
     
-    <div id="toolbar" class="drag-handle">
-      <div class="drag-pill" title="Drag GhostPilot">
+    <div id="toolbar" class="no-drag">
+      <button class="drag-pill no-drag" type="button" title="Drag GhostPilot" aria-label="Drag GhostPilot window">
         <span class="drag-dots" aria-hidden="true"></span>
         <span class="drag-label">Drag</span>
-      </div>
+      </button>
       <button class="tb-logo" id="logo-btn" title="Open setup guide" aria-label="Open GhostPilot setup guide"></button>
       <div class="tb-divider"></div>
       <button class="tb-hide" id="hide-btn" aria-expanded="true"><span class="chev"></span><span>Hide</span></button>
@@ -34,12 +34,17 @@
 
           
           <div id="panel-main">
+            <div id="work-mode-switch" class="work-mode-switch" role="group" aria-label="GhostPilot scenario">
+              <button type="button" data-work-mode="interview" aria-pressed="true">Interview</button>
+              <button type="button" data-work-mode="meeting" aria-pressed="false">Meeting / class</button>
+              <span id="work-mode-summary">Interview answers use your resume and preparation.</span>
+            </div>
             <div id="messages" aria-live="polite" aria-label="GhostPilot response"></div>
 
             <div id="capture-scope" class="capture-scope" aria-live="polite">
               <span id="mic-source-state" class="source-state">Mic off</span>
               <span id="meeting-source-state" class="source-state">Meeting audio off</span>
-              <span class="scope-note">Screen is used only when you ask or choose Assist.</span>
+              <span class="scope-note" id="scope-note">Screen is used only when you ask or choose Assist.</span>
             </div>
 
             <div id="meeting-complete-actions" class="meeting-complete-actions hidden" role="status" aria-live="polite">
@@ -55,17 +60,17 @@
             <div id="action-row">
               <button class="act act-primary" data-mode="say"
                 title="Suggests what to say next based on the conversation">
-                <span class="ic"></span><span>What should I say?</span>
+                <span class="ic"></span><span class="action-label">What should I say?</span>
                 <span class="shortcut-hint" id="say-shortcut-hint"></span>
               </button>
               <span class="sep" aria-hidden="true">•</span>
               <button class="act act-secondary" data-mode="assist"
                 title="Uses one current screen snapshot and the conversation">
-                <span class="ic"></span><span>Assist</span>
+                <span class="ic"></span><span class="action-label">Assist</span>
                 <span class="shortcut-hint" id="assist-shortcut-hint"></span>
               </button>
               <span class="sep" aria-hidden="true">•</span>
-              <button class="act" data-mode="followup"><span class="ic"></span><span>Follow-up</span></button>
+              <button class="act" data-mode="followup"><span class="ic"></span><span class="action-label">Follow-up</span></button>
             </div>
 
             <div id="composer">
@@ -82,7 +87,7 @@
               </div>
             </div>
 
-            <div id="prep-status" class="prep-status" aria-label="Interview context readiness">
+            <div id="prep-status" class="prep-status" aria-label="Saved context readiness">
               <span class="prep-item" data-field="resume">Resume</span>
               <span class="prep-item" data-field="jd">Job description</span>
               <span class="prep-item" data-field="stories">STAR stories</span>
@@ -114,7 +119,14 @@
         <button class="ts-clear-btn" id="clear-transcript-btn" title="Clear this panel without deleting saved files">Clear panel</button>
       </div>
     </div>
-    <div class="resize-hint" aria-hidden="true"></div>
+    <div class="resize-zone resize-n" data-resize-edge="n" aria-hidden="true"></div>
+    <div class="resize-zone resize-ne" data-resize-edge="ne" aria-hidden="true"></div>
+    <div class="resize-zone resize-e" data-resize-edge="e" aria-hidden="true"></div>
+    <div class="resize-zone resize-se resize-hint" data-resize-edge="se" aria-hidden="true"></div>
+    <div class="resize-zone resize-s" data-resize-edge="s" aria-hidden="true"></div>
+    <div class="resize-zone resize-sw" data-resize-edge="sw" aria-hidden="true"></div>
+    <div class="resize-zone resize-w" data-resize-edge="w" aria-hidden="true"></div>
+    <div class="resize-zone resize-nw" data-resize-edge="nw" aria-hidden="true"></div>
   </div>
 
   <div id="quit-confirm-scrim" class="hidden">
@@ -145,10 +157,10 @@
       <div class="s-tabs" role="tablist" aria-label="Settings sections">
         <button class="s-tab on" id="tab-keys" data-tab="keys" role="tab" aria-selected="true" aria-controls="pane-keys">Providers</button>
         <button class="s-tab" id="tab-transcription" data-tab="transcription" role="tab" aria-selected="false" aria-controls="pane-transcription">Audio</button>
-        <button class="s-tab" id="tab-profile" data-tab="profile" role="tab" aria-selected="false" aria-controls="pane-profile">Profile</button>
-        <button class="s-tab" id="tab-prep" data-tab="prep" role="tab" aria-selected="false" aria-controls="pane-prep">Prep</button>
+        <button class="s-tab" id="tab-profile" data-tab="profile" role="tab" aria-selected="false" aria-controls="pane-profile">Context</button>
+        <button class="s-tab" id="tab-prep" data-tab="prep" data-work-mode-only="interview" role="tab" aria-selected="false" aria-controls="pane-prep">Prep</button>
         <button class="s-tab" id="tab-style" data-tab="style" role="tab" aria-selected="false" aria-controls="pane-style">Style</button>
-        <button class="s-tab" id="tab-qa" data-tab="qa" role="tab" aria-selected="false" aria-controls="pane-qa">Q&amp;A</button>
+        <button class="s-tab" id="tab-qa" data-tab="qa" data-work-mode-only="interview" role="tab" aria-selected="false" aria-controls="pane-qa">Q&amp;A</button>
         <button class="s-tab" id="tab-updates" data-tab="updates" role="tab" aria-selected="false" aria-controls="pane-updates">Updates</button>
       </div>
 
@@ -261,17 +273,43 @@
 
       
       <div class="s-body s-tab-pane hidden" id="pane-profile" data-pane="profile" role="tabpanel" aria-labelledby="tab-profile">
-        <label class="s-label">Your resume <span class="s-hint">paste full resume, or import a PDF/DOCX</span></label>
-        <div class="s-field s-upload"><span class="s-filename" id="resume-filename"></span><button class="s-upload-btn" id="upload-resume-btn">Import PDF/DOCX</button></div>
-        <textarea id="resume-text" rows="7" spellcheck="false" placeholder="Paste your full resume here. GhostPilot will extract Name, Summary, Experience, Skills, Projects, and Education automatically."></textarea>
+        <label class="s-label">Scenario</label>
+        <div class="s-seg" id="settings-work-mode" role="group" aria-label="GhostPilot scenario">
+          <button type="button" data-work-mode="interview">Interview</button>
+          <button type="button" data-work-mode="meeting">Meeting / class</button>
+        </div>
+        <div class="s-note">The selected scenario changes live actions, AI prompts, and which preparation fields are used.</div>
 
-        <label class="s-label">Target job description <span class="s-hint">optional ,  every answer gets tailored to this role</span></label>
-        <div class="s-field s-upload"><span class="s-filename" id="jd-filename"></span><button class="s-upload-btn" id="upload-jd-btn">Import PDF/DOCX</button></div>
-        <textarea id="job-description" rows="5" spellcheck="false" placeholder="Paste the job description for the role you're interviewing for. GhostPilot will highlight your most relevant experience."></textarea>
+        <label class="s-label" for="profile-text">Shared profile <span class="s-hint">used in both scenarios</span></label>
+        <textarea id="profile-text" rows="5" spellcheck="false" placeholder="Describe your background, role, expertise, communication preferences, and anything GhostPilot should know about you."></textarea>
+
+        <div class="mode-context" data-work-mode-context="interview">
+          <label class="s-label">Your resume <span class="s-hint">paste full resume, or import a PDF/DOCX</span></label>
+          <div class="s-field s-upload"><span class="s-filename" id="resume-filename"></span><button class="s-upload-btn" id="upload-resume-btn">Import PDF/DOCX</button></div>
+          <textarea id="resume-text" rows="7" spellcheck="false" placeholder="Paste your full resume here. GhostPilot will use supported experience and skills when drafting interview answers."></textarea>
+
+          <label class="s-label">Target job description <span class="s-hint">optional, used to tailor interview answers</span></label>
+          <div class="s-field s-upload"><span class="s-filename" id="jd-filename"></span><button class="s-upload-btn" id="upload-jd-btn">Import PDF/DOCX</button></div>
+          <textarea id="job-description" rows="5" spellcheck="false" placeholder="Paste the job description for the role you are interviewing for."></textarea>
+        </div>
+
+        <div class="mode-context hidden" data-work-mode-context="meeting">
+          <label class="s-label" for="meeting-title">Meeting or class topic</label>
+          <input id="meeting-title" class="s-text-input" type="text" placeholder="e.g. Distributed systems class or product planning meeting" autocomplete="off" />
+
+          <label class="s-label s-label-spaced" for="meeting-goal">Purpose or desired outcome</label>
+          <textarea id="meeting-goal" rows="3" spellcheck="false" placeholder="What should be understood, decided, planned, or completed?"></textarea>
+
+          <label class="s-label" for="meeting-context">Agenda, source material, or background</label>
+          <textarea id="meeting-context" rows="7" spellcheck="false" placeholder="Paste the agenda, lesson outline, project background, terminology, or notes that should inform every answer."></textarea>
+
+          <label class="s-label" for="meeting-role">Your role and participation goals</label>
+          <textarea id="meeting-role" rows="4" spellcheck="false" placeholder="Describe your role, what you already know, and how you want GhostPilot to help you participate."></textarea>
+        </div>
       </div>
 
       
-      <div class="s-body s-tab-pane hidden" id="pane-prep" data-pane="prep" role="tabpanel" aria-labelledby="tab-prep">
+      <div class="s-body s-tab-pane hidden" id="pane-prep" data-pane="prep" data-work-mode-only="interview" role="tabpanel" aria-labelledby="tab-prep">
         <label class="s-label">Your STAR stories <span class="s-hint">write 3-5 real behavioral stories ,  used for "tell me about a time…" questions</span></label>
         <textarea id="star-stories" rows="8" spellcheck="false" placeholder="Story 1: At [Company], we faced [situation]. I was responsible for [task]. I did [specific actions]. The result was [outcome with metrics if possible].&#10;&#10;Story 2: ..."></textarea>
 
@@ -286,7 +324,7 @@
       </div>
 
       
-      <div class="s-body s-tab-pane hidden" id="pane-qa" data-pane="qa" role="tabpanel" aria-labelledby="tab-qa">
+      <div class="s-body s-tab-pane hidden" id="pane-qa" data-pane="qa" data-work-mode-only="interview" role="tabpanel" aria-labelledby="tab-qa">
         <label class="s-label">Salary target <span class="s-hint">used when asked about compensation</span></label>
         <input id="salary-target" class="s-text-input" type="text" placeholder="e.g. $150k-$180k base + equity, open to discuss total comp" autocomplete="off" />
 

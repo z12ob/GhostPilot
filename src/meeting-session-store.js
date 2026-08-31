@@ -95,15 +95,18 @@ class MeetingSessionStore {
     return this.current;
   }
 
-  startSession(startedAt = this.now()) {
+  startSession(startedAt = this.now(), details = {}) {
     if (this.current?.status === 'recording') this.stopSession(startedAt, 'interrupted');
+    const kind = details.kind === 'interview' ? 'interview' : 'meeting';
+    const suppliedTitle = String(details.title || '').trim().slice(0, 200);
     const id = crypto.randomUUID();
     const datePart = new Date(startedAt).toISOString().replace(/[:.]/g, '-');
     const directory = path.join(this.rootDirectory, `${datePart}_${id.slice(0, 8)}`);
     fs.mkdirSync(directory, { recursive: false });
     this.current = {
       id,
-      title: `Meeting ${new Date(startedAt).toLocaleString()}`,
+      kind,
+      title: suppliedTitle || `${kind === 'interview' ? 'Interview' : 'Meeting / class'} ${new Date(startedAt).toLocaleString()}`,
       startedAt,
       endedAt: null,
       status: 'recording',

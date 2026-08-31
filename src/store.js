@@ -9,6 +9,12 @@ const FILE = path.join(app.getPath('userData'), 'ghostpilot-data.json');
 const MAX_AI_RULES_CHARS = 2000;
 
 const DEFAULTS = {
+  workMode: 'interview',
+  profileText: '',
+  meetingTitle: '',
+  meetingGoal: '',
+  meetingContext: '',
+  meetingRole: '',
   provider: 'openai',
   sttProvider: 'auto',
   geminiSttModel: 'gemini-3.5-transcribe-live',
