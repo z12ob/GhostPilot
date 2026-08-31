@@ -5,7 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const extractZip = require('@electron-internal/extract-zip');
+const extractZipModule = require('@electron-internal/extract-zip');
 const tar = require('tar');
 const {
   WHISPER_CPP_VERSION,
@@ -18,6 +18,16 @@ const PROJECT_ROOT = path.resolve(__dirname, '..');
 const DEFAULT_CACHE_ROOT = path.join(PROJECT_ROOT, '.cache', 'whisper-runtime');
 const LICENSE_PATH = path.join(PROJECT_ROOT, 'build-resources', 'whisper.cpp.LICENSE');
 const RUNTIME_MANIFEST_FILENAME = 'runtime.json';
+
+function getZipExtractor(zipModule) {
+  const extractor = zipModule?.extract || zipModule?.default || zipModule;
+  if (typeof extractor !== 'function') {
+    throw new TypeError('The ZIP package does not export an extraction function.');
+  }
+  return extractor;
+}
+
+const extractZip = getZipExtractor(extractZipModule);
 
 function readArgument(name) {
   const index = process.argv.indexOf(`--${name}`);
@@ -290,5 +300,6 @@ module.exports = {
   prepareWhisperRuntime,
   assertSafeManagedDirectory,
   shouldCopyRuntimeEntry,
-  extractTarWithMaterializedLinks
+  extractTarWithMaterializedLinks,
+  getZipExtractor
 };

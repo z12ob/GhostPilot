@@ -16,6 +16,8 @@ const { resolvePermissionStatus } = require('./src/permissions');
 const { buildDisplayMediaStreams } = require('./src/display-media');
 const { buildCombinedNotesPrompt, buildNotesPrompt, buildPartialNotesPrompt, chunkTranscript } = require('./src/notes');
 const { TranscriptBuffer } = require('./src/transcript-buffer');
+const { MeetingSessionStore } = require('./src/meeting-session-store');
+const { waitForIdle } = require('./src/capture-drain');
 
 if (process.platform === 'darwin') {
   app.commandLine.appendSwitch('enable-features', 'MacLoopbackAudioForScreenShare,MacSckSystemAudioLoopbackOverride');
@@ -26,6 +28,7 @@ const { locateWhisperRuntime } = require('./src/whisper-runtime');
 const { LocalWhisperTranscriber } = require('./src/local-whisper-transcriber');
 
 let win = null;
+let resizeState = null;
 
 const shortcutState = { assist: false, say: false, leetcode: false, hide: false, quit: false };
 const isMac = process.platform === 'darwin';
@@ -52,6 +55,7 @@ const RMS_GATE = 180;
 let flushTimer = null;
 let whisperModelManager = null;
 let localWhisperTranscriber = null;
+let meetingSessionStore = null;
 let activeWhisperModelId = null;
 let desiredCaptureState = false;
 let captureTransition = Promise.resolve(false);
@@ -82,9 +86,32 @@ const ringBuffers = {
 
 function pushTranscript(turn) {
   transcript.push(turn);
+  meetingSessionStore?.appendTurn(turn);
 }
 
 function send(channel, data) { if (win && !win.isDestroyed()) win.webContents.send(channel, data); }
+
+function sessionSnapshot(maxTurns = 400) {
+  if (!meetingSessionStore) return { session: null, turns: [], turnCount: 0, hasNotes: false };
+  const snapshot = meetingSessionStore.getSnapshot({ maxTurns });
+  return {
+    session: snapshot.session,
+    turns: snapshot.turns,
+    turnCount: snapshot.turnCount,
+    hasNotes: snapshot.hasNotes
+  };
+}
+
+function publishSessionState() {
+  send('session:state', sessionSnapshot());
+}
+
+function beginMeetingSession() {
+  const started = meetingSessionStore?.startSession();
+  transcript.clear();
+  publishSessionState();
+  return started;
+}
 
 function getWhisperRuntime() {
   return locateWhisperRuntime({
@@ -182,9 +209,9 @@ function applyWindowProtection(targetWin) {
 
 function createWindow() {
   const { workArea } = screen.getPrimaryDisplay();
-  const W = 700, H = 600;
-
   const savedSettings = store.getSettings();
+  const W = Math.max(400, Math.min(savedSettings.windowWidth || 560, workArea.width));
+  const H = Math.max(320, Math.min(savedSettings.windowHeight || 500, workArea.height));
   let startX = Math.round(workArea.x + (workArea.width - W) / 2);
   let startY = workArea.y + 6;
 
@@ -198,8 +225,8 @@ function createWindow() {
   const winOptions = {
     width: W,
     height: H,
-    minWidth: 360,
-    minHeight: 360,
+    minWidth: 400,
+    minHeight: 320,
     x: startX,
     y: startY,
     frame: false,
@@ -244,11 +271,23 @@ function createWindow() {
     }, 500);
   });
 
+  let resizeSaveTimer = null;
+  win.on('resized', () => {
+    clearTimeout(resizeSaveTimer);
+    resizeSaveTimer = setTimeout(() => {
+      if (win && !win.isDestroyed()) {
+        const [windowWidth, windowHeight] = win.getSize();
+        store.setSettings({ windowWidth, windowHeight });
+      }
+    }, 500);
+  });
+
   win.setTitle('GhostPilot');
 
   win.webContents.on('did-finish-load', () => {
     win.showInactive();
     win.setTitle('GhostPilot');
+    publishSessionState();
 
     if (isWindows && !process.env.GHOSTPILOT_NO_PROTECT && !WIN_SUPPORTS_CONTENT_PROTECTION) {
       send('status', {
@@ -399,6 +438,7 @@ async function setCapturing(active) {
     if ((settings.sttProvider || 'auto') === 'local') {
       try {
         await startLocalWhisper(settings);
+        beginMeetingSession();
         state.capturing = true;
         console.log('[GhostPilot] capture started, mode: local');
         send('capture:state', { active: true, streaming: false, mode: 'local' });
@@ -418,6 +458,7 @@ async function setCapturing(active) {
       }
     }
 
+    beginMeetingSession();
     state.capturing = true;
 
     const streaming = initStreamingSTT();
@@ -431,6 +472,13 @@ async function setCapturing(active) {
 
   state.capturing = false;
   stopFlushLoop();
+  if (!streamingMode && !localWhisperTranscriber) {
+    await Promise.all([
+      waitForIdle(() => state.transcribing.you),
+      waitForIdle(() => state.transcribing.them)
+    ]);
+    await Promise.all([flushChannel('you'), flushChannel('them')]);
+  }
   stopStreamingSTT();
   clearPcmBuffer(buffers.you);
   clearPcmBuffer(buffers.them);
@@ -449,6 +497,8 @@ async function setCapturing(active) {
       activeWhisperModelId = null;
     }
   }
+  meetingSessionStore?.stopSession();
+  publishSessionState();
   return false;
 }
 
@@ -568,22 +618,34 @@ async function runFeature(mode, userText) {
             onToken: (token) => { partial += token; }
           });
           partialNotes.push(partial);
+          meetingSessionStore?.saveNotesProgress(partialNotes, chunks.length);
         }
         built = buildCombinedNotesPrompt(partialNotes);
         send('status', { message: 'Organizing final notes...' });
       }
     }
 
-    await streamWithInactivityTimeout({
+    let generatedNotes = '';
+    const result = await streamWithInactivityTimeout({
       llm,
       system,
       built,
       imageDataUrl,
       maxTokens: mode === 'recap' ? 2200 : undefined,
       signal: abortController.signal,
-      onToken: (text) => send('llm:token', { text })
+      onToken: (text) => {
+        if (mode === 'recap') generatedNotes += text;
+        send('llm:token', { text });
+      }
     });
     if (!abortController.signal.aborted) {
+      if (mode === 'recap') {
+        const notes = generatedNotes || (typeof result === 'string' ? result : '');
+        if (notes.trim()) {
+          meetingSessionStore?.saveNotes(notes, { provider: settings.provider, model: llm.model });
+          publishSessionState();
+        }
+      }
       send('llm:done', {});
     }
   } catch (e) {
@@ -650,10 +712,29 @@ ipcMain.handle('platform:info', () => ({
   winBuild: WIN_BUILD,
   winSupportsContentProtection: WIN_SUPPORTS_CONTENT_PROTECTION
 }));
-ipcMain.handle('transcript:clear', () => {
-  transcript.clear();
-  return { ok: true };
+ipcMain.handle('transcript:clear', () => ({ ok: true, saved: true }));
+ipcMain.handle('session:get', () => sessionSnapshot());
+ipcMain.handle('session:transcript-text', () => meetingSessionStore?.getSnapshot().transcriptText || '');
+ipcMain.handle('session:open-folder', async () => {
+  const directory = meetingSessionStore?.getSnapshot().session?.directory;
+  if (!directory) return { ok: false, message: 'No saved meeting is available yet.' };
+  const message = await shell.openPath(directory);
+  return message ? { ok: false, message } : { ok: true };
 });
+ipcMain.on('window:resize-start', (_event, point) => {
+  if (!win || win.isDestroyed() || !Number.isFinite(point?.screenX) || !Number.isFinite(point?.screenY)) return;
+  resizeState = { ...win.getBounds(), screenX: point.screenX, screenY: point.screenY };
+});
+ipcMain.on('window:resize-to', (_event, point) => {
+  if (!resizeState || !win || win.isDestroyed() || !Number.isFinite(point?.screenX) || !Number.isFinite(point?.screenY)) return;
+  const display = screen.getDisplayNearestPoint({ x: point.screenX, y: point.screenY });
+  const maxWidth = Math.max(400, display.workArea.x + display.workArea.width - resizeState.x);
+  const maxHeight = Math.max(320, display.workArea.y + display.workArea.height - resizeState.y);
+  const width = Math.max(400, Math.min(maxWidth, resizeState.width + point.screenX - resizeState.screenX));
+  const height = Math.max(320, Math.min(maxHeight, resizeState.height + point.screenY - resizeState.screenY));
+  win.setSize(Math.round(width), Math.round(height), false);
+});
+ipcMain.on('window:resize-end', () => { resizeState = null; });
 ipcMain.on('ask', (_e, payload) => runFeature(payload.mode, payload.text));
 ipcMain.on('mic:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('you', arrayBuffer); });
 ipcMain.on('system:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('them', arrayBuffer); });
@@ -772,6 +853,10 @@ function launchApp() {
   if (isMac && app.dock) app.dock.hide();
 
   whisperModelManager = new WhisperModelManager({ userDataPath: app.getPath('userData') });
+  meetingSessionStore = new MeetingSessionStore(path.join(app.getPath('userData'), 'meetings'));
+  const restored = meetingSessionStore.getSnapshot();
+  transcript.clear();
+  for (const turn of restored.turns) transcript.push(turn);
 
   const allowMedia = (permission) => permission === 'media' || permission === 'microphone' || permission === 'audioCapture' || permission === 'display-capture' || permission === 'screen';
   session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => cb(allowMedia(permission)));

@@ -21,6 +21,12 @@ contextBridge.exposeInMainWorld('ghostPilot', {
   systemPcm: (arrayBuffer) => ipcRenderer.send('system:pcm', arrayBuffer),
   setIgnoreMouse: (v) => ipcRenderer.send('mouse:ignore', v),
   clearTranscript: () => ipcRenderer.invoke('transcript:clear'),
+  sessionGet: () => ipcRenderer.invoke('session:get'),
+  sessionTranscriptText: () => ipcRenderer.invoke('session:transcript-text'),
+  sessionOpenFolder: () => ipcRenderer.invoke('session:open-folder'),
+  resizeStart: (point) => ipcRenderer.send('window:resize-start', point),
+  resizeTo: (point) => ipcRenderer.send('window:resize-to', point),
+  resizeEnd: () => ipcRenderer.send('window:resize-end'),
   openPane: (url) => ipcRenderer.send('open-pane', url),
   pickProfileDocument: () => ipcRenderer.invoke('profile:pickDocument'),
   quit: () => ipcRenderer.send('app:quit'),
@@ -29,7 +35,7 @@ contextBridge.exposeInMainWorld('ghostPilot', {
   permissionsContinue: () => ipcRenderer.send('permissions:continue'),
   log: (msg) => ipcRenderer.send('log', msg),
   on: (channel, cb) => {
-    const allowed = ['capture:state', 'llm:start', 'llm:token', 'llm:done', 'llm:error', 'status', 'transcript', 'stt:interim', 'stt:final', 'stt:status', 'vad:state', 'hide:toggle', 'whisper:download-progress', 'whisper:models-changed'];
+    const allowed = ['capture:state', 'llm:start', 'llm:token', 'llm:done', 'llm:error', 'status', 'transcript', 'stt:interim', 'stt:final', 'stt:status', 'vad:state', 'hide:toggle', 'whisper:download-progress', 'whisper:models-changed', 'session:state'];
     if (!allowed.includes(channel)) return;
     ipcRenderer.on(channel, (_e, data) => cb(data));
   }

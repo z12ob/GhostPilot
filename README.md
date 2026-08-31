@@ -25,6 +25,8 @@ Bring your own API key for OpenAI, Anthropic, Google Gemini, Azure AI Foundry, G
 - Screen-aware questions and coding help
 - Interview context from a resume, job description, and personal notes
 - Long-session notes with a summary, cheat sheet, topics and connections, decisions, action items, open questions, and follow-up
+- Live raw transcription with copy and local session files
+- Recovery of the latest saved session after an unexpected close
 - Local Whisper transcription option
 - No GhostPilot account or telemetry
 
@@ -90,13 +92,27 @@ GitHub automatically adds the two source archives to every release. The four Gho
 
 1. Set your operating system input and output devices before the call.
 2. Open GhostPilot and select **Listen**.
-3. Confirm that the transcript shows both **You** and **Them** when each side speaks.
+3. Confirm that the panel shows **Mic on** and **Meeting audio on**. Open **Transcript** and check that both **You** and **Meeting** appear when each side speaks.
 4. Use **Assist**, **What should I say?**, or **Follow-up** when needed.
-5. At the end, select **Recap** before quitting or clearing the transcript.
+5. At the end, select **Stop and save**. This flushes pending transcription and closes the saved session.
+6. Select **Generate notes** to create the structured summary from the complete raw transcript.
+7. Open **Transcript** to copy the raw text or open the meeting folder.
 
-For long sessions, GhostPilot keeps recent audio buffers bounded while retaining a much larger text transcript. Recap processes long transcripts in sections, then organizes the combined result. GhostPilot does not save an audio recording or persist the live transcript after the app exits, so copy important notes before closing it.
+Each meeting is stored under `%APPDATA%\GhostPilot\meetings` on Windows. A session folder contains:
 
-Changing the Windows default output device during a call can end the loopback stream. Select **Stop**, set the correct device, then select **Listen** again.
+- `transcript.txt`, a readable raw transcript with timestamps and channel labels
+- `transcript.jsonl`, the complete structured speech-to-text output
+- `session.json`, session timing and recovery metadata
+- `notes.md`, the generated notes
+- `notes.json`, the generated notes with provider metadata
+
+Final transcript turns are appended as they arrive. If GhostPilot closes unexpectedly, the latest session is marked as interrupted and restored on the next launch. The visible transcript keeps the latest 400 rows for responsiveness, while the complete raw text stays in the session files. An interim phrase that has not yet become a final transcription result can still be lost during a crash or power failure.
+
+For long sessions, GhostPilot keeps audio buffers bounded while retaining up to 1,000,000 transcript characters in memory. Generate notes processes large transcripts in sections, checkpoints the partial results, then organizes one final result. Audio is not saved as a recording.
+
+Wired, USB, and Bluetooth earphones work when the meeting plays through the same active Windows output device that GhostPilot captures. In Google Meet, open **Settings > Audio**, select the intended speakers and microphone, and test the speakers before the call. Changing the output device or Bluetooth profile during a call can end loopback capture. Select **Stop and save**, set the correct device, then select **Listen** again.
+
+Listen does not continuously analyze the screen. Assist and typed screen questions capture one current screenshot when requested. Meeting transcription and Generate notes use audio and transcript context without continuous screen capture.
 
 ## Use GhostPilot in an interview
 
@@ -104,7 +120,7 @@ Changing the Windows default output device during a call can end the loopback st
 2. Test your microphone, meeting audio, provider, and shortcuts before the interview.
 3. Select **Listen** after joining the call.
 4. Use **What should I say?** for a suggested spoken answer or **Assist** for screen and conversation context.
-5. Use **Follow-up** to prepare relevant questions and **Recap** to organize the discussion.
+5. Use **Follow-up** to prepare relevant questions. Select **Stop and save**, then **Generate notes** to organize the discussion.
 
 GhostPilot can help organize your own experience and thinking. Review every suggestion before using it, and follow the interviewer's rules.
 
@@ -117,7 +133,7 @@ GhostPilot can help organize your own experience and thinking. Review every sugg
 | Open Settings | `Ctrl+,` | `Command+,` |
 | Ask a typed question | Enter | Enter |
 
-The panel also includes Listen, What should I say?, Follow-up, Recap, and a Smart model toggle.
+The panel also includes Listen, What should I say?, Follow-up, Generate notes, Transcript, and a Smart model toggle. The arrow button sends only the question in the text field. It does not process the whole meeting.
 
 ## Configuration
 
@@ -140,7 +156,7 @@ For local transcription, select a Whisper model under Settings, then download it
 
 | Problem | What to check |
 |---|---|
-| Meeting audio does not appear under Them | Stop and start listening. Confirm the call plays through the Windows default output device. Disable exclusive mode for that device if another app has locked it. |
+| Meeting audio does not appear under Meeting | Stop and start listening. Confirm the call plays through the active Windows output device. In Google Meet, select and test the same speaker device. Disable exclusive mode if another app has locked it. |
 | Microphone does not appear under You | Open Windows **Settings > Privacy & security > Microphone** and enable both microphone access and desktop app access. GhostPilot may not appear as a separate Windows toggle. Restart it after changing access. |
 | Only one side is transcribed | Speak on both sides and confirm the call is not using a different output device. Bluetooth profile changes can switch devices during a call. |
 | The downloaded zip is very small | You downloaded GitHub's source archive. Download `GhostPilot-win-x64.zip` from the release assets instead. |
@@ -163,6 +179,7 @@ Settings, API keys, and downloaded local transcription models live in the operat
 - GhostPilot has no account system or telemetry.
 - Settings and API keys are stored locally in `ghostpilot-data.json` under Electron's user-data folder.
 - Audio is processed in memory and is not saved as an audio file.
+- Raw transcripts and generated notes are stored locally in the `meetings` folder under Electron's user-data folder.
 - Screenshots are captured only for screen-aware actions.
 - Audio, screenshots, transcripts, and prompts may be sent to the providers you configure.
 - Local Whisper keeps speech-to-text processing on the device, but chat requests still follow the selected chat provider.
@@ -178,6 +195,9 @@ Long-session safeguards include:
 - Bounded PCM buffers for both audio channels
 - A bounded text transcript that preserves far more than the previous 200-turn window
 - Section-by-section recap generation for transcripts that exceed a single prompt
+- Append-only raw transcript files with interrupted-session recovery
+- Partial-note checkpoints and final Markdown notes in each session folder
+- A 400-row live transcript limit that does not truncate the saved transcript
 - Abortable provider requests and an inactivity timeout
 - Batched token rendering to protect UI responsiveness
 - Independent microphone and meeting-audio startup

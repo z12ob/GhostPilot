@@ -1,7 +1,7 @@
 
 
 function buildNotesPrompt(transcript) {
-  const who = (t) => (t.channel === 'them' ? 'Them' : 'You');
+  const who = (t) => (t.channel === 'them' ? 'Meeting' : 'You');
   const lines = transcript.map((t) => who(t) + ': ' + t.text).join('\n');
   return (
     'Meeting transcript:\n' +
@@ -42,7 +42,7 @@ function chunkTranscript(transcript, maxCharacters = 18000) {
 }
 
 function buildPartialNotesPrompt(transcript, index, total) {
-  const who = (turn) => (turn.channel === 'them' ? 'Them' : 'You');
+  const who = (turn) => (turn.channel === 'them' ? 'Meeting' : 'You');
   const lines = transcript.map((turn) => `${who(turn)}: ${turn.text}`).join('\n');
   return (
     `Meeting transcript section ${index} of ${total}:\n${lines}\n\n` +

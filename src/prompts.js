@@ -101,7 +101,7 @@ const MODES = {
 
   recap: {
     needsScreen: false,
-    userBubble: 'Recap',
+    userBubble: 'Generate notes',
     small: true,
     resumeMode: 'recap',
     buildSystem(contextBlock, aiRules) {

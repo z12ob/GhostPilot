@@ -19,3 +19,15 @@ test('capture pipeline caps PCM buffers', () => {
   assert.match(src, /pushPcmChunk/);
   assert.match(src, /clearPcmBuffer/);
 });
+
+test('overlay is resizable and saves its dimensions', () => {
+  const main = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'main.js'), 'utf8');
+  const settings = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'src', 'store.js'), 'utf8');
+
+  assert.match(main, /resizable:\s*true/);
+  assert.match(main, /win\.on\('resized'/);
+  assert.match(main, /ipcMain\.on\('window:resize-start'/);
+  assert.match(main, /ipcMain\.on\('window:resize-to'/);
+  assert.match(settings, /windowWidth:\s*null/);
+  assert.match(settings, /windowHeight:\s*null/);
+});

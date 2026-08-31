@@ -18,7 +18,7 @@
       <div class="tb-divider"></div>
       <button class="tb-hide" id="hide-btn" aria-expanded="true"><span class="chev"></span><span>Hide</span></button>
       <div class="tb-divider"></div>
-      <button class="tb-stop" id="stop-btn" title="Start listening" aria-label="Start listening" aria-pressed="false"></button>
+      <button class="tb-stop" id="stop-btn" title="Start meeting capture" aria-label="Start meeting capture" aria-pressed="false"></button>
       <div class="tb-divider"></div>
       <button class="tb-quit" id="quit-btn" title="Quit GhostPilot" aria-label="Quit GhostPilot"></button>
     </div>
@@ -36,6 +36,12 @@
           <div id="panel-main">
             <div id="messages" aria-live="polite" aria-label="GhostPilot response"></div>
 
+            <div id="capture-scope" class="capture-scope" aria-live="polite">
+              <span id="mic-source-state" class="source-state">Mic off</span>
+              <span id="meeting-source-state" class="source-state">Meeting audio off</span>
+              <span class="scope-note">Screen is used only when you ask or choose Assist.</span>
+            </div>
+
             <div id="action-row">
               <button class="act act-primary" data-mode="say"
                 title="Suggests what to say next based on the conversation">
@@ -44,14 +50,14 @@
               </button>
               <span class="sep" aria-hidden="true">•</span>
               <button class="act act-secondary" data-mode="assist"
-                title="Scans your screen and conversation to decide what you need">
+                title="Uses one current screen snapshot and the conversation">
                 <span class="ic"></span><span>Assist</span>
                 <span class="shortcut-hint" id="assist-shortcut-hint"></span>
               </button>
               <span class="sep" aria-hidden="true">•</span>
               <button class="act" data-mode="followup"><span class="ic"></span><span>Follow-up</span></button>
               <span class="sep" aria-hidden="true">•</span>
-              <button class="act" data-mode="recap"><span class="ic"></span><span>Recap</span></button>
+              <button class="act" data-mode="recap" title="Generate structured notes from the saved raw transcript"><span class="ic"></span><span>Generate notes</span></button>
             </div>
 
             <div id="composer">
@@ -61,10 +67,10 @@
               </div>
               <div id="composer-bottom">
                 <button id="smart-toggle" class="smart-pill" aria-pressed="false"><span class="ic"></span><span>Smart</span></button>
-                <button id="history-btn" class="history-btn" title="View conversation history" aria-label="View conversation history" aria-expanded="false"><span class="ic"></span></button>
+                <button id="history-btn" class="history-btn" title="View live raw transcript" aria-label="View live raw transcript" aria-expanded="false"><span class="ic"></span><span class="history-label">Transcript</span></button>
                 <button id="more-btn" class="more-btn" title="Settings" aria-label="Open settings"></button>
                 <div class="spacer"></div>
-                <button id="send-btn" title="Send" aria-label="Send question"></button>
+                <button id="send-btn" title="Send this question" aria-label="Send this question"></button>
               </div>
             </div>
 
@@ -83,16 +89,24 @@
     
     <div id="transcript-sidebar" class="transcript-sidebar hidden">
       <div class="ts-header">
-        <span class="ts-title">Conversation History</span>
-        <button class="ts-close-btn" id="close-sidebar-btn" title="Close history">✕</button>
+        <div>
+          <div class="ts-title">Live raw transcript</div>
+          <div id="session-save-status" class="ts-save-status">Saved locally</div>
+        </div>
+        <button class="ts-close-btn" id="close-sidebar-btn" title="Close transcript" aria-label="Close transcript">✕</button>
       </div>
       <div id="ts-list" class="ts-list">
-        <div class="ts-placeholder">Conversation history will appear here when listening.</div>
+        <div class="ts-placeholder">Raw speech-to-text appears here while listening.</div>
       </div>
       <div class="ts-footer">
-        <button class="ts-clear-btn" id="clear-transcript-btn" title="Clear all history">Clear History</button>
+        <div class="ts-actions">
+          <button id="copy-transcript-btn">Copy raw</button>
+          <button id="open-session-folder-btn">Open folder</button>
+        </div>
+        <button class="ts-clear-btn" id="clear-transcript-btn" title="Clear this panel without deleting saved files">Clear panel</button>
       </div>
     </div>
+    <div class="resize-hint" aria-hidden="true"></div>
   </div>
 
   

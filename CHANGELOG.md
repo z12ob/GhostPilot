@@ -19,7 +19,7 @@ GhostPilot is a local-first Electron overlay that reads screen, microphone, and 
 **Long-session notes**
 
 - Replaced the 200-turn transcript limit with a bounded character buffer suitable for multi-hour sessions.
-- Recap now processes long transcripts in sections before producing final structured notes.
+- Generate notes now processes long transcripts in sections before producing final structured notes.
 - Added meeting summary, cheat sheet, topics and connections, decisions, action items, open questions, and follow-up sections.
 - Kept audio buffers bounded and provider requests abortable during long sessions.
 
@@ -35,6 +35,28 @@ GhostPilot is a local-first Electron overlay that reads screen, microphone, and 
 - Upgraded the packaged runtime from Electron 33 to Electron 44 and replaced the vulnerable zip extraction package with Electron's maintained fork.
 - Enabled ASAR packaging while keeping the local Whisper runtime in the external resources directory.
 - Expanded the automated suite from 135 to 145 passing tests.
+
+**Saved meeting sessions**
+
+- Added append-only raw transcript files for every meeting, with readable text and structured JSONL formats.
+- Added local session recovery after an unexpected close, partial-note checkpoints, and final Markdown notes beside the raw transcript.
+- Flush pending batch transcription before a meeting session closes.
+- Added a live raw transcript drawer with Copy raw and Open folder actions.
+- Limited the visible transcript to 400 rows while retaining the complete saved transcript and up to 1,000,000 transcript characters for notes.
+
+**Overlay controls and performance**
+
+- Reduced the default overlay size and panel opacity while preserving readable contrast.
+- Added a working resize handle and saved window dimensions.
+- Labeled microphone and meeting-audio state separately, including device-change recovery guidance.
+- Renamed Recap to Generate notes and replaced the ambiguous play icon with a send arrow for typed questions.
+- Clarified that screen capture happens only for Assist and screen-aware questions, not continuously during audio capture.
+
+**CI runtime preparation**
+
+- Corrected the maintained ZIP extractor module interop used by Windows and macOS Whisper runtime preparation.
+- Added regression coverage for the installed extractor package, durable sessions, capture draining, resize behavior, and meeting controls.
+- Expanded the automated suite from 145 to 158 passing tests.
 
 ---
 

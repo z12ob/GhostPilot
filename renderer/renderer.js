@@ -8,16 +8,29 @@
 
   $('#logo-btn').innerHTML = '<span class="brand-mark">' + icon('logo', { size: 18 }) + '</span><span class="brand-name">GhostPilot</span>';
   $('.tb-hide .chev').innerHTML = icon('chevron-down', { size: 14 });
-  $('#stop-btn').innerHTML = icon('mic', { size: 16 });
+  function renderCaptureButton(active) {
+    const button = $('#stop-btn');
+    button.innerHTML = icon(active ? 'square' : 'mic', { size: 15 }) + `<span class="tb-stop-label">${active ? 'Stop and save' : 'Listen'}</span>`;
+  }
+  function updateNotesButton(active) {
+    const notesButton = document.querySelector('.act[data-mode="recap"]');
+    if (!notesButton) return;
+    notesButton.disabled = active;
+    notesButton.title = active
+      ? 'Stop and save before generating complete notes'
+      : 'Generate structured notes from the saved raw transcript';
+  }
+  renderCaptureButton(false);
+  updateNotesButton(false);
   $('#quit-btn').innerHTML = icon('x', { size: 14 });
   $('#ob-close').innerHTML = icon('x', { size: 16 });
   document.querySelector('.act[data-mode="assist"] .ic').innerHTML = icon('sparkles', { size: 16 });
   document.querySelector('.act[data-mode="say"] .ic').innerHTML = icon('wand-sparkles', { size: 16 });
   document.querySelector('.act[data-mode="followup"] .ic').innerHTML = icon('message-circle', { size: 16 });
-  document.querySelector('.act[data-mode="recap"] .ic').innerHTML = icon('refresh-cw', { size: 16 });
+  document.querySelector('.act[data-mode="recap"] .ic').innerHTML = icon('file-text', { size: 16 });
   $('#smart-toggle .ic').innerHTML = icon('zap', { size: 14 });
   $('#more-btn').innerHTML = icon('settings', { size: 17 });
-  $('#send-btn').innerHTML = icon('play', { size: 15 });
+  $('#send-btn').innerHTML = icon('arrow-up', { size: 15 });
   const clearIC = document.querySelector('#clear-transcript-btn .ic');
   if (clearIC) clearIC.innerHTML = icon('trash-2', { size: 15 });
 
@@ -28,6 +41,7 @@
   let aiEl = null;
   let caretEl = null;
   let responseCount = 0;
+  let rawTurnCount = 0;
   const MAX_RESPONSES = 20;
 
   const messages = $('#messages');
@@ -238,7 +252,7 @@
       }
     }
     
-    updateSendButtonState(); // FIX #9: Keep send button in sync
+    updateSendButtonState();
   }
   
   function updateSendButtonState() {
@@ -279,7 +293,7 @@
 
     let badge = historyBtn.querySelector('.history-badge');
     
-    const count = questionHistory.length;
+    const count = rawTurnCount;
     if (count > 0) {
       if (!badge) {
         badge = document.createElement('span');
@@ -511,7 +525,7 @@
   const sendBtn = document.getElementById('send-btn');
   if (sendBtn) {
     const forceKey = isWindows ? 'Ctrl+Shift+A' : '⌘⇧A';
-    sendBtn.title = `Send · ${forceKey} to force answer`;
+    sendBtn.title = `Send this question. ${forceKey} forces an answer.`;
   }
 
   const smartBtn = $('#smart-toggle');
@@ -549,28 +563,28 @@
   const clearTranscriptBtn = document.getElementById('clear-transcript-btn');
   if (clearTranscriptBtn) {
     clearTranscriptBtn.addEventListener('click', async () => {
-
       saveToQuestionHistory(input.value);
-      
       await ghostPilot.clearTranscript();
       clearMessages();
-
       if (interimEl) { interimEl.textContent = ''; interimEl.classList.remove('show'); }
-
-      const list = document.getElementById('ts-list');
-      if (list) list.innerHTML = '<div class="ts-placeholder">Conversation history will appear here when listening.</div>';
       transcriptInterimEl = null;
       clearTranscriptSidebar();
       hardClearSTTFill();
-      
-      const undoHint = isWindows ? 'Ctrl+Z to undo' : '⌘Z to undo';
-      showToast(`Transcript cleared · ${undoHint}`, 3500);
+      showToast('Panel cleared. Saved raw transcript was not deleted.', 3500);
     });
+  }
+
+  function setSourceState(id, state, text) {
+    const element = document.getElementById(id);
+    if (!element) return;
+    element.className = `source-state source-${state}`;
+    element.textContent = text;
   }
 
   let audioCtx = null, micStream = null, micWorklet = null;
   async function startMic() {
     if (micStream) return;
+    setSourceState('mic-source-state', 'starting', 'Mic connecting');
     try {
       micStream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -587,6 +601,7 @@
         micStream.getTracks().forEach((t) => t.stop());
         micStream = null;
         showStatus('No microphone audio track was available. Check Windows Sound settings for a working default input device, then try again.');
+        setSourceState('mic-source-state', 'error', 'Mic unavailable');
         return;
       }
       ghostPilot.log('mic stream started: track=' + (track.label || '(no label, permission may be stale)') + ' muted=' + track.muted);
@@ -623,6 +638,7 @@
         };
         micWorklet = { _legacy: true, proc: micProc, node: micNode, sink };
       }
+      setSourceState('mic-source-state', 'on', 'Mic on');
     } catch (err) {
       const message = err && err.message ? err.message : String(err);
       const name = err && err.name;
@@ -639,6 +655,7 @@
       } else {
         showStatus('Microphone capture could not be started. Check your mic permissions and try again.');
       }
+      setSourceState('mic-source-state', 'error', 'Mic unavailable');
     }
   }
   function stopMic() {
@@ -654,6 +671,7 @@
     }
     if (audioCtx) { audioCtx.close(); audioCtx = null; }
     if (micStream) { micStream.getTracks().forEach((t) => t.stop()); micStream = null; }
+    setSourceState('mic-source-state', 'off', 'Mic off');
   }
 
   let sysStream = null, sysCtx = null, sysWorklet = null, sysStarting = false;
@@ -661,9 +679,11 @@
 
     if (sysStream || sysStarting) return;
     sysStarting = true;
+    setSourceState('meeting-source-state', 'starting', 'Meeting audio connecting');
     if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== 'function') {
       ghostPilot.log('system audio unavailable: getDisplayMedia not supported');
       showStatus('Meeting audio capture is not available on this device build.');
+      setSourceState('meeting-source-state', 'error', 'Meeting audio unavailable');
       sysStarting = false;
       return;
     }
@@ -678,6 +698,7 @@
         showStatus(ghostPilot.platform === 'win32'
           ? 'Windows did not provide a meeting-audio track. Check that your default output device is working and is not in exclusive mode, then try again.'
           : 'No meeting-audio track was available. Meeting audio needs macOS 14.4 or later. Your screen and microphone can still work.');
+        setSourceState('meeting-source-state', 'error', 'Meeting audio unavailable');
         return;
       }
       sysStream = stream;
@@ -687,7 +708,10 @@
         track.addEventListener('ended', () => {
           if (sysStream !== stream) return;
           stopSystemAudio();
-          if (captureActive) showStatus('Meeting audio stopped. Click Stop, then Listen to reconnect it.');
+          if (captureActive) {
+            setSourceState('meeting-source-state', 'error', 'Meeting audio disconnected');
+            showStatus('Meeting audio stopped. Click Stop and save, then Listen to reconnect it.');
+          }
         }, { once: true });
       });
 
@@ -720,6 +744,7 @@
         };
         sysWorklet = { _legacy: true, proc: sysProc, node: sysNode, sink };
       }
+      setSourceState('meeting-source-state', 'on', 'Meeting audio on');
     } catch (err) {
       const message = err && err.message ? err.message : String(err);
       const name = err && err.name;
@@ -736,6 +761,7 @@
       } else {
         showStatus('Meeting audio could not start. Check your default output device, restart GhostPilot, and try again.');
       }
+      setSourceState('meeting-source-state', 'error', 'Meeting audio unavailable');
     } finally {
       sysStarting = false;
     }
@@ -753,6 +779,15 @@
     }
     if (sysCtx) { sysCtx.close(); sysCtx = null; }
     if (sysStream) { sysStream.getTracks().forEach((t) => t.stop()); sysStream = null; }
+    if (!captureActive) setSourceState('meeting-source-state', 'off', 'Meeting audio off');
+  }
+
+  if (navigator.mediaDevices?.addEventListener) {
+    navigator.mediaDevices.addEventListener('devicechange', () => {
+      if (!captureActive) return;
+      setSourceState('meeting-source-state', 'error', 'Audio device changed');
+      showStatus('Your audio device changed. Click Stop and save, then Listen to reconnect the microphone and meeting audio.');
+    });
   }
 
   function setLiveDotState(dotState) {
@@ -786,10 +821,13 @@
 
   let tsSidebarInterimEl = null;
   let sidebarOpen = false;
+  let currentSession = null;
+  let currentSessionHasNotes = false;
 
   const tsLastRow = { you: null, them: null };
   const tsRowTimer = { you: null, them: null };
   const TS_SENTENCE_GAP_MS = 10000;
+  const MAX_VISIBLE_TRANSCRIPT_ROWS = 400;
 
   function showSidebar() {
     const sidebar = document.getElementById('transcript-sidebar');
@@ -834,7 +872,7 @@
 
   const historyBtn = document.getElementById('history-btn');
   if (historyBtn) {
-    historyBtn.innerHTML = icon('message-square-text', { size: 15 });
+    historyBtn.innerHTML = icon('file-text', { size: 14 }) + '<span class="history-label">Transcript</span>';
     historyBtn.addEventListener('click', toggleSidebar);
   }
 
@@ -843,9 +881,11 @@
     closeSidebarBtn.addEventListener('click', hideSidebar);
   }
 
-  function appendTranscriptHistoryTurn(channel, text, isInterim) {
+  function appendTranscriptHistoryTurn(channel, text, isInterim, options = {}) {
     const list = document.getElementById('ts-list');
     if (!list) return;
+    const countTurn = options.countTurn !== false;
+    const merge = options.merge !== false;
 
     const ph = list.querySelector('.ts-placeholder');
     if (ph) ph.remove();
@@ -857,7 +897,7 @@
         tsSidebarInterimEl.className = 'ts-turn ts-' + channel + ' ts-interim-row';
         const chLabel = document.createElement('span');
         chLabel.className = 'ts-channel';
-        chLabel.textContent = channel === 'them' ? 'Them' : 'You';
+        chLabel.textContent = channel === 'them' ? 'Meeting' : 'You';
         const txt = document.createElement('span');
         txt.className = 'ts-text ts-interim';
         tsSidebarInterimEl.appendChild(chLabel);
@@ -870,7 +910,7 @@
       if (tsSidebarInterimEl) { tsSidebarInterimEl.remove(); tsSidebarInterimEl = null; }
 
       const existingRow = tsLastRow[channel];
-      const useExisting = existingRow && existingRow.isConnected;
+      const useExisting = merge && existingRow && existingRow.isConnected;
 
       if (useExisting) {
 
@@ -885,7 +925,7 @@
 
         const chLabel = document.createElement('span');
         chLabel.className = 'ts-channel';
-        chLabel.textContent = channel === 'them' ? 'Them' : 'You';
+        chLabel.textContent = channel === 'them' ? 'Meeting' : 'You';
 
         const txt = document.createElement('span');
         txt.className = 'ts-text';
@@ -897,6 +937,10 @@
         tsLastRow[channel] = row;
       }
 
+      if (countTurn) rawTurnCount += 1;
+      const rows = list.querySelectorAll('.ts-turn:not(.ts-interim-row)');
+      if (rows.length > MAX_VISIBLE_TRANSCRIPT_ROWS) rows[0].remove();
+
       clearTimeout(tsRowTimer[channel]);
       tsRowTimer[channel] = setTimeout(() => { tsLastRow[channel] = null; }, TS_SENTENCE_GAP_MS);
 
@@ -905,25 +949,102 @@
       tsLastRow[other] = null;
 
       list.scrollTop = list.scrollHeight;
+      updateSessionSaveStatus();
+      updateHistoryBadge();
     }
   }
 
   function clearTranscriptSidebar() {
     const list = document.getElementById('ts-list');
-    if (list) list.innerHTML = '<div class="ts-placeholder">Conversation history will appear here when listening.</div>';
+    if (list) list.innerHTML = '<div class="ts-placeholder">Raw speech-to-text appears here while listening.</div>';
     tsSidebarInterimEl = null;
     tsLastRow.you = null; tsLastRow.them = null;
     clearTimeout(tsRowTimer.you); clearTimeout(tsRowTimer.them);
   }
+
+  function updateSessionSaveStatus() {
+    const element = document.getElementById('session-save-status');
+    if (!element) return;
+    if (!currentSession) {
+      element.textContent = 'Start Listen to create a saved session';
+      return;
+    }
+    if (currentSession.status === 'recording') {
+      element.textContent = `Recording and saving, ${rawTurnCount} raw turns`;
+    } else if (currentSessionHasNotes) {
+      element.textContent = `Notes and ${rawTurnCount} raw turns saved`;
+    } else if (currentSession.status === 'interrupted') {
+      element.textContent = `Recovered locally, ${rawTurnCount} raw turns`;
+    } else {
+      element.textContent = `Saved locally, ${rawTurnCount} raw turns`;
+    }
+  }
+
+  function renderSessionSnapshot(snapshot) {
+    currentSession = snapshot?.session || null;
+    currentSessionHasNotes = !!snapshot?.hasNotes;
+    rawTurnCount = Number(snapshot?.turnCount) || 0;
+    clearTranscriptSidebar();
+    const turns = Array.isArray(snapshot?.turns) ? snapshot.turns : [];
+    for (const turn of turns) {
+      appendTranscriptHistoryTurn(turn.channel, turn.text, false, { countTurn: false, merge: false });
+    }
+    const list = document.getElementById('ts-list');
+    if (list && rawTurnCount > turns.length) {
+      const notice = document.createElement('div');
+      notice.className = 'ts-truncated';
+      notice.textContent = `Showing the latest ${turns.length} turns. The complete transcript is saved.`;
+      list.prepend(notice);
+    }
+    updateSessionSaveStatus();
+    updateHistoryBadge();
+  }
+
+  async function copyText(text) {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const temporary = document.createElement('textarea');
+    temporary.value = text;
+    temporary.style.position = 'fixed';
+    temporary.style.opacity = '0';
+    document.body.appendChild(temporary);
+    temporary.select();
+    document.execCommand('copy');
+    temporary.remove();
+  }
+
+  document.getElementById('copy-transcript-btn')?.addEventListener('click', async () => {
+    const text = await ghostPilot.sessionTranscriptText();
+    if (!text) {
+      showToast('No saved raw transcript yet.', 2000);
+      return;
+    }
+    try {
+      await copyText(text);
+      showToast('Raw transcript copied.', 2000);
+    } catch {
+      showToast('Copy failed. Open the meeting folder instead.', 3000);
+    }
+  });
+
+  document.getElementById('open-session-folder-btn')?.addEventListener('click', async () => {
+    const result = await ghostPilot.sessionOpenFolder();
+    showToast(result.ok ? 'Opened the saved meeting folder.' : result.message, 3000);
+  });
+
+  ghostPilot.on('session:state', renderSessionSnapshot);
 
   ghostPilot.on('capture:state', async ({ active, streaming, mode }) => {
     captureActive = active;
     setLiveDotState(active ? 'idle' : 'off');
     $('#stop-btn').classList.toggle('active', active);
     $('#stop-btn').setAttribute('aria-pressed', String(active));
-    $('#stop-btn').setAttribute('aria-label', active ? 'Stop listening' : 'Start listening');
-    $('#stop-btn').title = active ? 'Stop listening' : 'Start listening';
-    $('#stop-btn').innerHTML = icon(active ? 'stop-square' : 'mic', { size: 16 });
+    $('#stop-btn').setAttribute('aria-label', active ? 'Stop and save meeting capture' : 'Start meeting capture');
+    $('#stop-btn').title = active ? 'Stop and save meeting capture' : 'Start microphone and meeting-audio capture';
+    renderCaptureButton(active);
+    updateNotesButton(active);
     composer.classList.toggle('listening', active);
     const historyBtn = document.getElementById('history-btn');
     if (historyBtn) historyBtn.classList.toggle('listening', active);
@@ -934,6 +1055,8 @@
     } else {
       stopMic();
       stopSystemAudio();
+      setSourceState('mic-source-state', 'off', 'Mic off');
+      setSourceState('meeting-source-state', 'off', 'Meeting audio off');
       if (interimEl) {
         interimEl.textContent = '';
         interimEl.classList.remove('show');
@@ -988,7 +1111,7 @@
   ghostPilot.on('stt:interim', ({ channel, text }) => {
     setLiveDotState('transcribing');
     const el = getOrCreateInterimEl();
-    const label = channel === 'them' ? 'Them' : 'You';
+    const label = channel === 'them' ? 'Meeting' : 'You';
     el.textContent = `${label}: ${text}`;
     el.classList.add('show');
     appendTranscriptHistoryTurn(channel, text, true);
@@ -1554,10 +1677,28 @@
   function setIgnore(v) { if (v !== ignoring) { ignoring = v; ghostPilot.setIgnoreMouse(v); } }
   document.addEventListener('mousemove', (e) => {
     const el = document.elementFromPoint(e.clientX, e.clientY);
-    const overUI = !!(el && el.closest && el.closest('#toolbar, #panel-wrap, #transcript-sidebar, #settings-scrim, #onboard-scrim'));
+    const overUI = !!(el && el.closest && el.closest('#toolbar, #panel-wrap, #transcript-sidebar, #settings-scrim, #onboard-scrim, .resize-hint'));
     setIgnore(!overUI);
   });
   setIgnore(true);
+
+  const resizeHint = document.querySelector('.resize-hint');
+  if (resizeHint) {
+    resizeHint.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      resizeHint.setPointerCapture(event.pointerId);
+      ghostPilot.resizeStart({ screenX: event.screenX, screenY: event.screenY });
+    });
+    resizeHint.addEventListener('pointermove', (event) => {
+      if (!resizeHint.hasPointerCapture(event.pointerId)) return;
+      ghostPilot.resizeTo({ screenX: event.screenX, screenY: event.screenY });
+    });
+    resizeHint.addEventListener('pointerup', (event) => {
+      if (resizeHint.hasPointerCapture(event.pointerId)) resizeHint.releasePointerCapture(event.pointerId);
+      ghostPilot.resizeEnd();
+    });
+    resizeHint.addEventListener('pointercancel', () => ghostPilot.resizeEnd());
+  }
 
   const obScrim = $('#onboard-scrim');
   const permissionHelp = isWindows
@@ -1669,6 +1810,8 @@
     updateHistoryBadge();
     updateSendButtonState();
 
+    renderSessionSnapshot(await ghostPilot.sessionGet());
+
     if (isWindows) {
       placeholder.innerHTML = 'Ask about your screen or conversation, or <span class="keycap">Ctrl</span><span class="keycap">⏎</span> for Assist';
     }
@@ -1678,7 +1821,8 @@
     $('#live-dot').classList.toggle('off', !st.active);
     $('#stop-btn').classList.toggle('active', st.active);
     $('#stop-btn').setAttribute('aria-pressed', String(st.active));
-    $('#stop-btn').innerHTML = icon(st.active ? 'stop-square' : 'mic', { size: 16 });
+    renderCaptureButton(st.active);
+    updateNotesButton(st.active);
     if (!settings.onboarded) showOnboard();
   })();
 })();

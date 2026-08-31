@@ -16,7 +16,7 @@ const transcript = [
 
 test('buildNotesPrompt formats speakers and preserves order', () => {
   const p = buildNotesPrompt(transcript);
-  assert.ok(p.includes('Them: We need to launch by Friday.'));
+  assert.ok(p.includes('Meeting: We need to launch by Friday.'));
   assert.ok(p.includes('You: I can handle the API work.'));
   assert.ok(p.includes('Cheat Sheet:'));
   assert.ok(p.includes('Topics and Connections:'));
@@ -36,7 +36,7 @@ test('buildPartialNotesPrompt identifies the transcript section', () => {
 
   assert.match(prompt, /section 1 of 3/i);
   assert.match(prompt, /important topics and how they connect/i);
-  assert.match(prompt, /Them: We need to launch by Friday\./);
+  assert.match(prompt, /Meeting: We need to launch by Friday\./);
 });
 
 test('buildCombinedNotesPrompt requests one structured final result', () => {

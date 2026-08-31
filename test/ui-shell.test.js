@@ -65,3 +65,24 @@ test('audio worklets stay connected through silent output sinks', () => {
   assert.match(renderer, /source\.connect\(micWorklet\);[\s\S]*micWorklet\.connect\(sink\);[\s\S]*sink\.connect\(audioCtx\.destination\)/);
   assert.match(renderer, /source\.connect\(sysWorklet\);[\s\S]*sysWorklet\.connect\(sink\);[\s\S]*sink\.connect\(sysCtx\.destination\)/);
 });
+
+test('meeting controls distinguish capture, notes, screen use, and question sending', () => {
+  const html = read('renderer/index.html');
+  const renderer = read('renderer/renderer.js');
+
+  assert.match(html, /data-mode="recap"[^>]*[\s\S]*?<span>Generate notes<\/span>/);
+  assert.match(html, /Screen is used only when you ask or choose Assist/);
+  assert.match(renderer, /icon\('arrow-up'/);
+  assert.match(renderer, /Stop and save/);
+  assert.match(renderer, /notesButton\.disabled = active/);
+});
+
+test('live transcript exposes saved raw text actions', () => {
+  const html = read('renderer/index.html');
+  const preload = read('preload.js');
+
+  assert.match(html, /id="copy-transcript-btn"[^>]*>Copy raw<\/button>/);
+  assert.match(html, /id="open-session-folder-btn"[^>]*>Open folder<\/button>/);
+  assert.match(preload, /sessionTranscriptText/);
+  assert.match(preload, /sessionOpenFolder/);
+});
