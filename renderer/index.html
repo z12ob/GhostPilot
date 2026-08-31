@@ -42,6 +42,16 @@
               <span class="scope-note">Screen is used only when you ask or choose Assist.</span>
             </div>
 
+            <div id="meeting-complete-actions" class="meeting-complete-actions hidden" role="status" aria-live="polite">
+              <div class="meeting-complete-copy">
+                <strong id="meeting-complete-title">Meeting saved</strong>
+                <span id="meeting-complete-detail">Your raw transcript is safe on this device.</span>
+              </div>
+              <button id="generate-notes-btn" class="act meeting-notes-button" data-mode="recap" title="Generate structured notes from the saved raw transcript">
+                <span class="ic"></span><span>Generate notes</span>
+              </button>
+            </div>
+
             <div id="action-row">
               <button class="act act-primary" data-mode="say"
                 title="Suggests what to say next based on the conversation">
@@ -56,8 +66,6 @@
               </button>
               <span class="sep" aria-hidden="true">•</span>
               <button class="act" data-mode="followup"><span class="ic"></span><span>Follow-up</span></button>
-              <span class="sep" aria-hidden="true">•</span>
-              <button class="act" data-mode="recap" title="Generate structured notes from the saved raw transcript"><span class="ic"></span><span>Generate notes</span></button>
             </div>
 
             <div id="composer">
@@ -174,6 +182,7 @@
         <label class="s-label">Models <span class="s-hint">fast = Smart off · smart = Smart on</span></label>
         <div class="s-field"><span>Fast</span><input id="model-fast" type="text" autocomplete="off" /></div>
         <div class="s-field"><span>Smart</span><input id="model-smart" type="text" autocomplete="off" /></div>
+        <div id="gemini-model-note" class="s-note hidden">Recommended: <code>gemini-3.7-flash</code> for both Fast and Smart. Gemini speech-to-text is configured separately under Audio.</div>
 
         <div class="s-status" id="s-status"></div>
       </div>
@@ -189,6 +198,14 @@
           <button data-stt-provider="gemini">Gemini</button>
         </div>
         <div class="s-note">Local mode keeps microphone and meeting audio on this computer. It never silently falls back to a cloud transcription provider.</div>
+
+        <div id="gemini-stt-settings" class="whisper-card">
+          <label class="s-label" for="gemini-stt-model">Gemini speech model</label>
+          <select id="gemini-stt-model" class="s-select">
+            <option value="gemini-3.5-transcribe-live">Gemini 3.5 Transcribe Live</option>
+          </select>
+          <div class="s-note">This model is separate from the Fast and Smart reasoning models. GhostPilot uses verbatim live transcription and reconnects during long meetings.</div>
+        </div>
 
         <div class="whisper-card">
           <div class="whisper-runtime-row">

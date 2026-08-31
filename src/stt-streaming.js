@@ -1,8 +1,230 @@
 
 
-const { looksLikeHallucination } = require('./stt');
+const { looksLikeHallucination, buildVocabPrompt } = require('./stt');
 const { pcmToWav } = require('./wav');
 const { CURRENT_GEMINI_DEFAULT } = require('./llm');
+
+const GEMINI_LIVE_TRANSCRIBE_MODEL = 'gemini-3.5-transcribe-live';
+const GEMINI_LIVE_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
+const PCM_100_MS_BYTES = 16000 * 2 / 10;
+const GEMINI_SESSION_ROTATION_MS = 9 * 60 * 1000;
+
+class GeminiLiveTranscriptionSTT {
+  constructor(apiKey, options = {}) {
+    this.apiKey = apiKey;
+    this.model = options.model || GEMINI_LIVE_TRANSCRIBE_MODEL;
+    this.settings = options.settings || {};
+    this.onTranscript = options.onTranscript || (() => {});
+    this.onInterim = options.onInterim || (() => {});
+    this.onError = options.onError || (() => {});
+    this.onStatusChange = options.onStatusChange || (() => {});
+    this.socketFactory = options.socketFactory || ((url) => {
+      const WebSocket = require('ws');
+      return new WebSocket(url);
+    });
+    this.ws = null;
+    this.connected = false;
+    this.sessionReady = false;
+    this.running = false;
+    this.audioBuffer = Buffer.alloc(0);
+    this.pendingChunks = [];
+    this.reconnectAttempts = 0;
+    this.reconnectTimer = null;
+    this.rotationTimer = null;
+    this.setupTimer = null;
+  }
+
+  connect() {
+    if (this.running && this.ws) return;
+    this.running = true;
+    this._openSocket();
+  }
+
+  _openSocket() {
+    if (!this.running) return;
+    clearTimeout(this.reconnectTimer);
+    clearTimeout(this.rotationTimer);
+    clearTimeout(this.setupTimer);
+    this.connected = false;
+    this.sessionReady = false;
+    this.onStatusChange('connecting');
+
+    const url = `${GEMINI_LIVE_URL}?key=${encodeURIComponent(this.apiKey)}`;
+    const socket = this.socketFactory(url);
+    this.ws = socket;
+    this.setupTimer = setTimeout(() => {
+      if (socket !== this.ws || this.sessionReady) return;
+      this.onError({ provider: 'gemini-live', message: 'Gemini Live setup timed out.', status: null, recoverable: true });
+      if (typeof socket.terminate === 'function') socket.terminate();
+      else socket.close();
+    }, 10000);
+
+    socket.on('open', () => {
+      if (socket !== this.ws || !this.running) return;
+      this.connected = true;
+      this._send({
+        setup: {
+          model: `models/${this.model}`,
+          generationConfig: { responseModalities: ['TEXT'] },
+          inputAudioTranscription: {
+            languageCodes: [],
+            customVocabulary: buildVocabPrompt(this.settings).split(',').map((term) => term.trim()).filter(Boolean).slice(0, 100),
+            mode: 'VERBATIM'
+          }
+        }
+      });
+    });
+
+    socket.on('message', (data) => {
+      if (socket !== this.ws) return;
+      try {
+        this._handleMessage(JSON.parse(data.toString()));
+      } catch (error) {
+        this.onError({ provider: 'gemini-live', message: `Invalid Gemini Live response: ${error.message}`, status: null, recoverable: true });
+      }
+    });
+
+    socket.on('error', (error) => {
+      if (socket !== this.ws) return;
+      this.onError({ provider: 'gemini-live', message: error.message, status: null, recoverable: true });
+    });
+
+    socket.on('close', (code, reason) => {
+      if (socket !== this.ws) return;
+      this.ws = null;
+      this.connected = false;
+      this.sessionReady = false;
+      clearTimeout(this.setupTimer);
+      clearTimeout(this.rotationTimer);
+      if (!this.running) {
+        this.onStatusChange('disconnected');
+        return;
+      }
+      if (code !== 1000 && reason) {
+        this.onError({ provider: 'gemini-live', message: reason.toString(), status: code, recoverable: true });
+      }
+      this._scheduleReconnect();
+    });
+  }
+
+  _handleMessage(message) {
+    if (message.setupComplete) {
+      clearTimeout(this.setupTimer);
+      this.sessionReady = true;
+      this.reconnectAttempts = 0;
+      this.onStatusChange('connected');
+      this._flushPending();
+      this.rotationTimer = setTimeout(() => this._rotateSession(), GEMINI_SESSION_ROTATION_MS);
+      return;
+    }
+
+    if (message.error) {
+      this.onError({
+        provider: 'gemini-live',
+        message: message.error.message || 'Gemini Live transcription failed.',
+        status: message.error.code || null
+      });
+      return;
+    }
+
+    const content = message.serverContent;
+    const interim = content?.interimInputTranscription?.text;
+    const finalText = content?.inputTranscription?.text;
+    if (interim) this.onInterim(interim);
+    if (finalText && !looksLikeHallucination(finalText)) {
+      this.onTranscript(finalText.trim());
+      this.onInterim('');
+    }
+  }
+
+  sendAudio(pcmBuffer) {
+    if (!pcmBuffer || pcmBuffer.length === 0) return;
+    this.audioBuffer = Buffer.concat([this.audioBuffer, Buffer.from(pcmBuffer)]);
+    while (this.audioBuffer.length >= PCM_100_MS_BYTES) {
+      const chunk = this.audioBuffer.subarray(0, PCM_100_MS_BYTES);
+      this.audioBuffer = this.audioBuffer.subarray(PCM_100_MS_BYTES);
+      if (this.connected && this.sessionReady) this._sendAudioChunk(chunk);
+      else {
+        this.pendingChunks.push(Buffer.from(chunk));
+        if (this.pendingChunks.length > 50) this.pendingChunks.shift();
+      }
+    }
+  }
+
+  _sendAudioChunk(chunk) {
+    this._send({
+      realtimeInput: {
+        audio: {
+          data: chunk.toString('base64'),
+          mimeType: 'audio/pcm;rate=16000'
+        }
+      }
+    });
+  }
+
+  _flushPending() {
+    while (this.pendingChunks.length && this.connected && this.sessionReady) {
+      this._sendAudioChunk(this.pendingChunks.shift());
+    }
+  }
+
+  _flushTrailingAudio() {
+    if (!this.audioBuffer.length || !this.connected || !this.sessionReady) return;
+    this._sendAudioChunk(this.audioBuffer);
+    this.audioBuffer = Buffer.alloc(0);
+  }
+
+  _rotateSession() {
+    if (!this.running || !this.ws) return;
+    this._flushTrailingAudio();
+    this.sessionReady = false;
+    this.onStatusChange('reconnecting');
+    this._send({ realtimeInput: { audioStreamEnd: true } });
+    const socket = this.ws;
+    setTimeout(() => {
+      if (socket !== this.ws) return;
+      socket.close(1000, 'Scheduled session rotation');
+      setTimeout(() => {
+        if (socket === this.ws && typeof socket.terminate === 'function') socket.terminate();
+      }, 1500);
+    }, 750);
+  }
+
+  _scheduleReconnect() {
+    if (!this.running || this.reconnectTimer) return;
+    const delay = Math.min(1000 * (2 ** this.reconnectAttempts), 16000);
+    this.reconnectAttempts += 1;
+    this.onStatusChange('reconnecting');
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this._openSocket();
+    }, delay);
+  }
+
+  _send(message) {
+    if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(message));
+  }
+
+  disconnect() {
+    this.running = false;
+    clearTimeout(this.reconnectTimer);
+    clearTimeout(this.rotationTimer);
+    clearTimeout(this.setupTimer);
+    this.reconnectTimer = null;
+    this.rotationTimer = null;
+    if (this.ws && this.ws.readyState === 1) {
+      this._flushTrailingAudio();
+      this._send({ realtimeInput: { audioStreamEnd: true } });
+      this.ws.close(1000, 'Capture stopped');
+    }
+    this.ws = null;
+    this.connected = false;
+    this.sessionReady = false;
+    this.audioBuffer = Buffer.alloc(0);
+    this.pendingChunks = [];
+    this.onStatusChange('disconnected');
+  }
+}
 
 class OpenAIRealtimeSTT {
   constructor(apiKey, options = {}) {
@@ -377,8 +599,20 @@ function createStreamingSTT(settings, channel, callbacks) {
   const selectedProvider = settings.sttProvider || 'auto';
   const { onTranscript, onInterim, onError, onStatusChange } = callbacks;
 
-  if (selectedProvider === 'local' || selectedProvider === 'gemini') {
+  if (selectedProvider === 'local') {
     return { type: 'batch', provider: selectedProvider, instance: null };
+  }
+
+  if (selectedProvider === 'gemini' && keys.gemini) {
+    const stt = new GeminiLiveTranscriptionSTT(keys.gemini, {
+      model: settings.geminiSttModel || GEMINI_LIVE_TRANSCRIBE_MODEL,
+      settings,
+      onTranscript: (text) => onTranscript(channel, text),
+      onInterim: (text) => onInterim(channel, text),
+      onError,
+      onStatusChange: (status) => onStatusChange(channel, status)
+    });
+    return { type: 'streaming', provider: 'gemini-live', instance: stt };
   }
 
   if ((selectedProvider === 'auto' || selectedProvider === 'deepgram') && keys.deepgram) {
@@ -403,6 +637,18 @@ function createStreamingSTT(settings, channel, callbacks) {
     return { type: 'streaming', provider: 'openai-realtime', instance: stt };
   }
 
+  if (selectedProvider === 'auto' && keys.gemini) {
+    const stt = new GeminiLiveTranscriptionSTT(keys.gemini, {
+      model: settings.geminiSttModel || GEMINI_LIVE_TRANSCRIBE_MODEL,
+      settings,
+      onTranscript: (text) => onTranscript(channel, text),
+      onInterim: (text) => onInterim(channel, text),
+      onError,
+      onStatusChange: (status) => onStatusChange(channel, status)
+    });
+    return { type: 'streaming', provider: 'gemini-live', instance: stt };
+  }
+
   return {
     type: 'batch',
     provider: selectedProvider === 'auto' && keys.gemini ? 'gemini' : 'none',
@@ -411,6 +657,8 @@ function createStreamingSTT(settings, channel, callbacks) {
 }
 
 module.exports = {
+  GEMINI_LIVE_TRANSCRIBE_MODEL,
+  GeminiLiveTranscriptionSTT,
   OpenAIRealtimeSTT,
   DeepgramStreamingSTT,
   createStreamingSTT,

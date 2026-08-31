@@ -13,7 +13,7 @@
     button.innerHTML = icon(active ? 'square' : 'mic', { size: 15 }) + `<span class="tb-stop-label">${active ? 'Stop and save' : 'Listen'}</span>`;
   }
   function updateNotesButton(active) {
-    const notesButton = document.querySelector('.act[data-mode="recap"]');
+    const notesButton = document.getElementById('generate-notes-btn');
     if (!notesButton) return;
     notesButton.disabled = active;
     notesButton.title = active
@@ -23,6 +23,7 @@
   renderCaptureButton(false);
   updateNotesButton(false);
   $('#quit-btn').innerHTML = icon('x', { size: 14 });
+  $('#quit-btn').addEventListener('click', () => ghostPilot.quit());
   $('#ob-close').innerHTML = icon('x', { size: 16 });
   document.querySelector('.act[data-mode="assist"] .ic').innerHTML = icon('sparkles', { size: 16 });
   document.querySelector('.act[data-mode="say"] .ic').innerHTML = icon('wand-sparkles', { size: 16 });
@@ -824,6 +825,21 @@
   let currentSession = null;
   let currentSessionHasNotes = false;
 
+  function updateMeetingActions() {
+    const meetingActions = document.getElementById('meeting-complete-actions');
+    if (!meetingActions) return;
+    const hasSavedSession = currentSession && currentSession.status !== 'recording';
+    meetingActions.classList.toggle('hidden', !hasSavedSession || captureActive);
+    const title = document.getElementById('meeting-complete-title');
+    const detail = document.getElementById('meeting-complete-detail');
+    const notesButton = document.getElementById('generate-notes-btn');
+    if (title) title.textContent = currentSessionHasNotes ? 'Meeting notes saved' : 'Meeting saved';
+    if (detail) detail.textContent = currentSessionHasNotes
+      ? `Notes and ${rawTurnCount} raw turns are stored locally.`
+      : `Your ${rawTurnCount} raw transcript turns are safe on this device.`;
+    if (notesButton) notesButton.querySelector('span:last-child').textContent = currentSessionHasNotes ? 'Regenerate notes' : 'Generate notes';
+  }
+
   const tsLastRow = { you: null, them: null };
   const tsRowTimer = { you: null, them: null };
   const TS_SENTENCE_GAP_MS = 10000;
@@ -998,6 +1014,7 @@
     }
     updateSessionSaveStatus();
     updateHistoryBadge();
+    updateMeetingActions();
   }
 
   async function copyText(text) {
@@ -1045,6 +1062,7 @@
     $('#stop-btn').title = active ? 'Stop and save meeting capture' : 'Start microphone and meeting-audio capture';
     renderCaptureButton(active);
     updateNotesButton(active);
+    updateMeetingActions();
     composer.classList.toggle('listening', active);
     const historyBtn = document.getElementById('history-btn');
     if (historyBtn) historyBtn.classList.toggle('listening', active);
@@ -1157,6 +1175,10 @@
       sttState = 'streaming';
       const label = document.getElementById('stt-status');
       if (label) { label.textContent = sttState; label.className = 'stt-status stt-streaming'; }
+    } else if (status === 'connecting' || status === 'reconnecting') {
+      sttState = 'connecting';
+      const label = document.getElementById('stt-status');
+      if (label) { label.textContent = status; label.className = 'stt-status stt-connecting'; }
     }
   });
   ghostPilot.on('vad:state', ({ channel, speaking }) => {
@@ -1357,6 +1379,7 @@
 
   function updateCustomProviderFields() {
     $('#custom-endpoint-settings').classList.toggle('hidden', settings.provider !== 'custom');
+    $('#gemini-model-note').classList.toggle('hidden', settings.provider !== 'gemini');
   }
 
   function fillSettings() {
@@ -1382,6 +1405,7 @@
     document.querySelectorAll('#stt-provider-seg button').forEach((button) => {
       button.classList.toggle('on', button.dataset.sttProvider === (settings.sttProvider || 'auto'));
     });
+    $('#gemini-stt-model').value = settings.geminiSttModel || 'gemini-3.5-transcribe-live';
     const localWhisper = settings.localWhisper || { modelId: 'base.en', language: 'auto', threads: 0 };
     $('#whisper-language').value = localWhisper.language || 'auto';
     $('#whisper-threads').value = Number(localWhisper.threads) || 0;
@@ -1424,7 +1448,7 @@
     const has = Object.keys(labels).filter((p) => k[p]).map((p) => labels[p]);
 
     const selectedSttProvider = settings.sttProvider || 'auto';
-    const automaticStt = k.deepgram ? 'Deepgram (streaming)' : (k.openai ? 'OpenAI Realtime' : (k.groq ? 'Groq Whisper' : (k.gemini ? 'Gemini (batch)' : 'none')));
+    const automaticStt = k.deepgram ? 'Deepgram (streaming)' : (k.openai ? 'OpenAI Realtime' : (k.groq ? 'Groq Whisper' : (k.gemini ? 'Gemini Live' : 'none')));
     const stt = selectedSttProvider === 'auto' ? automaticStt : selectedSttProvider;
     const ready = [
       settings.resumeText ? '✓ resume' : null,
@@ -1613,6 +1637,7 @@
     if (!settings.models[settings.provider]) settings.models[settings.provider] = {};
     settings.models[settings.provider].fast = $('#model-fast').value.trim();
     settings.models[settings.provider].smart = $('#model-smart').value.trim();
+    settings.geminiSttModel = $('#gemini-stt-model').value;
 
     if (!settings.localWhisper) settings.localWhisper = {};
     settings.localWhisper.modelId = $('#whisper-model').value || settings.localWhisper.modelId || 'base.en';
@@ -1673,14 +1698,39 @@
     if ((e.metaKey || e.ctrlKey) && e.key === ',') { e.preventDefault(); openSettings(); }
   });
 
-  let ignoring = null;
-  function setIgnore(v) { if (v !== ignoring) { ignoring = v; ghostPilot.setIgnoreMouse(v); } }
-  document.addEventListener('mousemove', (e) => {
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    const overUI = !!(el && el.closest && el.closest('#toolbar, #panel-wrap, #transcript-sidebar, #settings-scrim, #onboard-scrim, .resize-hint'));
-    setIgnore(!overUI);
+  const interactiveRegionSelectors = [
+    '#toolbar',
+    '#panel-wrap',
+    '#transcript-sidebar',
+    '#settings-scrim',
+    '#onboard-scrim',
+    '.resize-hint'
+  ];
+  let regionUpdateFrame = null;
+  function publishInteractiveRegions() {
+    regionUpdateFrame = null;
+    const regions = interactiveRegionSelectors.flatMap((selector) => [...document.querySelectorAll(selector)])
+      .filter((element) => {
+        const style = getComputedStyle(element);
+        return style.display !== 'none' && style.visibility !== 'hidden' && element.getClientRects().length > 0;
+      })
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+      });
+    ghostPilot.setInteractiveRegions(regions);
+  }
+  function scheduleInteractiveRegionUpdate() {
+    if (regionUpdateFrame !== null) return;
+    regionUpdateFrame = requestAnimationFrame(publishInteractiveRegions);
+  }
+  new ResizeObserver(scheduleInteractiveRegionUpdate).observe(document.documentElement);
+  new MutationObserver(scheduleInteractiveRegionUpdate).observe(document.body, {
+    attributes: true,
+    attributeFilter: ['class', 'style'],
+    subtree: true
   });
-  setIgnore(true);
+  scheduleInteractiveRegionUpdate();
 
   const resizeHint = document.querySelector('.resize-hint');
   if (resizeHint) {
@@ -1732,7 +1782,7 @@
     {
       icon: 'key-round',
       title: 'Connect an AI provider',
-      body: 'GhostPilot uses your own provider key. Choose <span class="hl">OpenAI</span>, <span class="hl">Anthropic</span>, <span class="hl">Google Gemini</span>, or <span class="hl">Azure AI Foundry</span>, then paste the key into Settings.<br><br>For low-latency transcription, add a <span class="hl">Deepgram</span> key or use a supported local Whisper model.',
+      body: 'GhostPilot uses your own provider key. Choose <span class="hl">OpenAI</span>, <span class="hl">Anthropic</span>, <span class="hl">Google Gemini</span>, or <span class="hl">Azure AI Foundry</span>, then paste the key into Settings.<br><br>For low-latency transcription, use Gemini Live, add a <span class="hl">Deepgram</span> key, or use a supported local Whisper model.',
       buttons: [{ label: 'Open GhostPilot Settings', action: () => { finishOnboard(); openSettings(); } }]
     },
     {
@@ -1778,7 +1828,7 @@
     $('#ob-next').textContent = obIndex === OB_STEPS.length - 1 ? 'Done' : 'Next';
     $('#ob-skip').style.visibility = obIndex === OB_STEPS.length - 1 ? 'hidden' : 'visible';
   }
-  function showOnboard() { obIndex = 0; renderOnboard(); obScrim.classList.remove('hidden'); setIgnore(false); $('#ob-close').focus(); }
+  function showOnboard() { obIndex = 0; renderOnboard(); obScrim.classList.remove('hidden'); $('#ob-close').focus(); }
   async function finishOnboard() {
     obScrim.classList.add('hidden');
     if (settings && !settings.onboarded) { settings.onboarded = true; await ghostPilot.settingsSet({ onboarded: true }); }

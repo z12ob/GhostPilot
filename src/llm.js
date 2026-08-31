@@ -4,7 +4,7 @@ const { createCompatibleClientOptions } = require('./openai-compatible');
 
 const CUSTOM_PROVIDER = 'custom';
 
-const CURRENT_GEMINI_DEFAULT = 'gemini-2.5-flash';
+const CURRENT_GEMINI_DEFAULT = 'gemini-3.7-flash';
 const DEFAULT_MODELS = {
   openai: 'gpt-4o-mini',
   anthropic: 'claude-3-5-haiku-latest',

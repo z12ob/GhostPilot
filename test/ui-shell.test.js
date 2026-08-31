@@ -28,7 +28,24 @@ test('standalone permission window always exposes close and Escape exits', () =>
   assert.match(html, /id="perm-close"[^>]*aria-label="Close GhostPilot"/);
   assert.match(html, /id="quit-btn"[^>]*>Quit GhostPilot</);
   assert.match(html, /addEventListener\('keydown',[\s\S]*e\.key === 'Escape'[\s\S]*ghostPilot\.quit\(\)/);
-  assert.equal((main.match(/ipcMain\.on\('app:quit'/g) || []).length, 1);
+  assert.equal((main.match(/ipcMain\.handle\('app:quit'/g) || []).length, 1);
+});
+
+test('overlay hit testing is driven by main-process cursor polling', () => {
+  const renderer = read('renderer/renderer.js');
+  const preload = read('preload.js');
+  const main = read('main.js');
+
+  assert.doesNotMatch(renderer, /setIgnore\(true\)/);
+  assert.match(renderer, /setInteractiveRegions/);
+  assert.match(preload, /mouse:regions/);
+  assert.match(main, /isPointInRegions/);
+});
+
+test('toolbar Quit button invokes the application quit path', () => {
+  const renderer = read('renderer/renderer.js');
+
+  assert.match(renderer, /#quit-btn'\)\.addEventListener\('click', \(\) => ghostPilot\.quit\(\)\)/);
 });
 
 test('Windows onboarding explains the desktop-app microphone switch', () => {
@@ -70,11 +87,13 @@ test('meeting controls distinguish capture, notes, screen use, and question send
   const html = read('renderer/index.html');
   const renderer = read('renderer/renderer.js');
 
-  assert.match(html, /data-mode="recap"[^>]*[\s\S]*?<span>Generate notes<\/span>/);
+  assert.match(html, /id="meeting-complete-actions"[^>]*[\s\S]*?id="generate-notes-btn"[^>]*data-mode="recap"/);
+  assert.match(html, /<span>Generate notes<\/span>/);
   assert.match(html, /Screen is used only when you ask or choose Assist/);
   assert.match(renderer, /icon\('arrow-up'/);
   assert.match(renderer, /Stop and save/);
   assert.match(renderer, /notesButton\.disabled = active/);
+  assert.match(renderer, /meetingActions\.classList\.toggle\('hidden'/);
 });
 
 test('live transcript exposes saved raw text actions', () => {

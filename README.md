@@ -59,14 +59,14 @@ The optional `GhostPilot-win-x64.exe` is the standard Windows installer. It adds
 
 Download the AppImage that matches your CPU:
 
-- `GhostPilot-1.1.0-linux-x86_64.AppImage`
-- `GhostPilot-1.1.0-linux-arm64.AppImage`
+- `GhostPilot-1.1.1-linux-x86_64.AppImage`
+- `GhostPilot-1.1.1-linux-arm64.AppImage`
 
 For x64 Linux:
 
 ```bash
-chmod +x GhostPilot-1.1.0-linux-x86_64.AppImage
-./GhostPilot-1.1.0-linux-x86_64.AppImage
+chmod +x GhostPilot-1.1.1-linux-x86_64.AppImage
+./GhostPilot-1.1.1-linux-x86_64.AppImage
 ```
 
 Desktop audio capture varies across Wayland, X11, PipeWire, and desktop environments.
@@ -81,8 +81,8 @@ Signed macOS downloads are not published yet. To run GhostPilot from source, use
 |---|---|
 | `GhostPilot-win-x64.zip` | Recommended portable Windows app |
 | `GhostPilot-win-x64.exe` | Optional Windows installer |
-| `GhostPilot-1.1.0-linux-x86_64.AppImage` | Linux x64 app |
-| `GhostPilot-1.1.0-linux-arm64.AppImage` | Linux arm64 app |
+| `GhostPilot-1.1.1-linux-x86_64.AppImage` | Linux x64 app |
+| `GhostPilot-1.1.1-linux-arm64.AppImage` | Linux arm64 app |
 | Source code (zip) | Developers who want the tagged source snapshot |
 | Source code (tar.gz) | Developers who prefer a tar archive |
 
@@ -143,7 +143,7 @@ Open Settings from the panel or with `Ctrl+,` on Windows.
 |---|---|
 | OpenAI | API key and model names |
 | Anthropic | API key and models; choose a separate transcription provider |
-| Google Gemini | API key and models |
+| Google Gemini | API key, separate reasoning models, and dedicated live speech-to-text |
 | Azure AI Foundry | API key, endpoint, and deployment names |
 | Groq | API key and models |
 | MiniMax | API key, region, and models |
@@ -151,6 +151,16 @@ Open Settings from the panel or with `Ctrl+,` on Windows.
 | Ollama | Local Ollama URL and model |
 
 For local transcription, select a Whisper model under Settings, then download it. Packaged apps include the whisper.cpp runtime. Source builds need `npm run prepare:whisper` once before local transcription is used.
+
+### Recommended Gemini setup
+
+GhostPilot separates speech recognition from note generation and live assistance:
+
+- Under Providers, select Gemini and set both Fast and Smart to `gemini-3.7-flash`. This stable reasoning model handles responses and generated meeting notes.
+- Under Audio, select Gemini. GhostPilot uses `gemini-3.5-transcribe-live` for real-time verbatim speech-to-text.
+- Existing settings are preserved during an update. If an older installation still shows `gemini-2.5-flash`, replace it manually in the Fast and Smart fields.
+
+The Fast and Smart fields affect reasoning only. They do not change speech-to-text. GhostPilot only uses model identifiers accepted by the selected API, so an unavailable or misspelled name returns a provider error instead of silently choosing another model. Gemini Live transcription connections are renewed during long meetings before the provider session limit.
 
 ## Troubleshooting
 

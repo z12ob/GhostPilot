@@ -37,6 +37,8 @@ test('uses the GhostPilot identity in Windows runtime and development metadata',
   assert.match(main, /app\.setAppUserModelId\('com\.ghostpilot\.app'\)/);
   assert.doesNotMatch(main, /MicrosoftEdgeUpdate|Microsoft Edge Update/);
   assert.match(renameScript, /DISPLAY_NAME\s*=\s*'GhostPilot\.exe'/);
+  assert.match(renameScript, /BUILDER_NAME\s*=\s*'electron\.exe'/);
+  assert.match(renameScript, /fs\.copyFileSync\(target, builderTarget\)/);
   assert.match(renameScript, /FileDescription:\s*'GhostPilot'/);
   assert.match(renameScript, /ProductName:\s*'GhostPilot'/);
   assert.doesNotMatch(renameScript, /FileDescription:\s*'Microsoft|ProductName:\s*'Microsoft|CompanyName:\s*'Microsoft/);

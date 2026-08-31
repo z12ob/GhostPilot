@@ -5,10 +5,13 @@ if (process.platform !== 'win32') process.exit(0);
 
 const pkg = require('../package.json');
 const DISPLAY_NAME = 'GhostPilot.exe';
+const BUILDER_NAME = 'electron.exe';
 const distDir = path.join(__dirname, '..', 'node_modules', 'electron', 'dist');
 const pathTxt = path.join(__dirname, '..', 'node_modules', 'electron', 'path.txt');
 const target = path.join(distDir, DISPLAY_NAME);
-const candidates = ['electron.exe', 'MicrosoftEdgeUpdate.exe', 'RuntimeBroker.exe', 'SearchHost.exe'];
+const builderTarget = path.join(distDir, BUILDER_NAME);
+const legacyNames = ['MicrosoftEdgeUpdate.exe', 'RuntimeBroker.exe', 'SearchHost.exe'];
+const candidates = [BUILDER_NAME, ...legacyNames];
 
 const source = candidates
   .map((name) => path.join(distDir, name))
@@ -24,12 +27,14 @@ if (source) {
   console.log(`[postinstall] Copied ${path.basename(source)} -> ${DISPLAY_NAME}`);
 }
 
-for (const name of [...candidates, 'electron.exe.bak']) {
+for (const name of [...legacyNames, 'electron.exe.bak']) {
   const candidate = path.join(distDir, name);
   try {
     if (candidate !== target && fs.existsSync(candidate)) fs.unlinkSync(candidate);
   } catch (_) {}
 }
+
+if (!fs.existsSync(builderTarget)) fs.copyFileSync(target, builderTarget);
 
 fs.writeFileSync(pathTxt, DISPLAY_NAME);
 console.log(`[postinstall] path.txt -> ${DISPLAY_NAME}`);

@@ -8,6 +8,22 @@ GhostPilot is a local-first Electron overlay that reads screen, microphone, and 
 
 ## 31-Aug-2026
 
+**v1.1.1 overlay reliability**
+
+- Replaced renderer-dependent click-through recovery with main-process cursor hit testing so Drag, Hide, Listen, and Quit remain interactive.
+- Kept the complete overlay inside the active display work area after moving it or restoring a saved position.
+- Changed Quit to an acknowledged IPC request and added regression coverage for the full close path.
+- Added a clear Meeting saved panel with Generate notes immediately after Stop and save.
+
+**Gemini transcription and reasoning**
+
+- Separated Gemini speech-to-text from Fast and Smart reasoning model settings.
+- Added dedicated live transcription with `gemini-3.5-transcribe-live`, including interim text, verbatim final text, 100 ms audio chunks, automatic language detection, and vocabulary hints.
+- Renewed Gemini transcription sessions before the provider limit and buffered short connection gaps for long meetings.
+- Set `gemini-3.7-flash` as the default reasoning model for new Gemini configurations while preserving existing user settings.
+- Expanded the automated suite from 158 to 168 passing tests.
+- Kept electron-builder's required Windows source executable while preserving the GhostPilot development launcher and metadata.
+
 **Windows meeting audio**
 
 - Corrected the Electron display-media response to request Windows loopback audio explicitly.

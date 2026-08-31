@@ -18,6 +18,7 @@ const { buildCombinedNotesPrompt, buildNotesPrompt, buildPartialNotesPrompt, chu
 const { TranscriptBuffer } = require('./src/transcript-buffer');
 const { MeetingSessionStore } = require('./src/meeting-session-store');
 const { waitForIdle } = require('./src/capture-drain');
+const { clampWindowBounds, isPointInRegions } = require('./src/window-interaction');
 
 if (process.platform === 'darwin') {
   app.commandLine.appendSwitch('enable-features', 'MacLoopbackAudioForScreenShare,MacSckSystemAudioLoopbackOverride');
@@ -29,6 +30,9 @@ const { LocalWhisperTranscriber } = require('./src/local-whisper-transcriber');
 
 let win = null;
 let resizeState = null;
+let interactiveRegions = [];
+let mousePollingTimer = null;
+let ignoringMouse = false;
 
 const shortcutState = { assist: false, say: false, leetcode: false, hide: false, quit: false };
 const isMac = process.platform === 'darwin';
@@ -216,10 +220,14 @@ function createWindow() {
   let startY = workArea.y + 6;
 
   if (savedSettings.windowX !== null && savedSettings.windowY !== null) {
-    const clampedX = Math.max(workArea.x - W + 100, Math.min(savedSettings.windowX, workArea.x + workArea.width - 100));
-    const clampedY = Math.max(workArea.y, Math.min(savedSettings.windowY, workArea.y + workArea.height - 40));
-    startX = clampedX;
-    startY = clampedY;
+    const restored = clampWindowBounds({
+      x: savedSettings.windowX,
+      y: savedSettings.windowY,
+      width: W,
+      height: H
+    }, workArea);
+    startX = restored.x;
+    startY = restored.y;
   }
 
   const winOptions = {
@@ -250,6 +258,27 @@ function createWindow() {
   }
 
   win = new BrowserWindow(winOptions);
+  interactiveRegions = [];
+  ignoringMouse = false;
+
+  clearInterval(mousePollingTimer);
+  mousePollingTimer = setInterval(() => {
+    if (!win || win.isDestroyed() || !win.isVisible()) return;
+    if (interactiveRegions.length === 0) {
+      if (ignoringMouse) {
+        ignoringMouse = false;
+        win.setIgnoreMouseEvents(false);
+      }
+      return;
+    }
+    const cursor = screen.getCursorScreenPoint();
+    const bounds = win.getBounds();
+    const localPoint = { x: cursor.x - bounds.x, y: cursor.y - bounds.y };
+    const shouldIgnore = !isPointInRegions(localPoint, interactiveRegions);
+    if (shouldIgnore === ignoringMouse) return;
+    ignoringMouse = shouldIgnore;
+    win.setIgnoreMouseEvents(shouldIgnore, { forward: true });
+  }, 50);
 
   applyWindowProtection(win);
   win.on('show', () => applyWindowProtection(win));
@@ -265,8 +294,13 @@ function createWindow() {
     clearTimeout(moveSaveTimer);
     moveSaveTimer = setTimeout(() => {
       if (win && !win.isDestroyed()) {
-        const [x, y] = win.getPosition();
-        store.setSettings({ windowX: x, windowY: y });
+        const bounds = win.getBounds();
+        const display = screen.getDisplayMatching(bounds);
+        const reachable = clampWindowBounds(bounds, display.workArea);
+        if (reachable.x !== bounds.x || reachable.y !== bounds.y || reachable.width !== bounds.width || reachable.height !== bounds.height) {
+          win.setBounds(reachable, false);
+        }
+        store.setSettings({ windowX: reachable.x, windowY: reachable.y });
       }
     }, 500);
   });
@@ -371,7 +405,11 @@ function initStreamingSTT() {
       },
       onError: (err) => {
         console.log('[streaming-stt] error', err.provider, err.message);
-        const batchFallbackAvailable = createSTT(settings).available;
+        if (err.recoverable) {
+          send('status', { message: `Streaming transcription is reconnecting after a temporary ${err.provider} connection error.` });
+          return;
+        }
+        const batchFallbackAvailable = sttInstance.provider !== 'gemini-live' && createSTT(settings).available;
         stopStreamingSTT();
         if (batchFallbackAvailable) {
           send('status', { message: `Streaming transcription (${err.provider}) error: ${err.message}. Falling back to batch mode.` });
@@ -738,9 +776,17 @@ ipcMain.on('window:resize-end', () => { resizeState = null; });
 ipcMain.on('ask', (_e, payload) => runFeature(payload.mode, payload.text));
 ipcMain.on('mic:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('you', arrayBuffer); });
 ipcMain.on('system:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('them', arrayBuffer); });
-ipcMain.on('mouse:ignore', (_e, v) => { if (win) win.setIgnoreMouseEvents(!!v, { forward: true }); });
+ipcMain.on('mouse:regions', (_event, regions) => {
+  if (!Array.isArray(regions)) return;
+  interactiveRegions = regions
+    .filter((region) => region && ['x', 'y', 'width', 'height'].every((key) => Number.isFinite(region[key])))
+    .map(({ x, y, width, height }) => ({ x, y, width, height }));
+});
 ipcMain.on('open-pane', (_e, url) => { shell.openExternal(url).catch(() => {}); });
-ipcMain.on('app:quit', () => app.quit());
+ipcMain.handle('app:quit', () => {
+  setImmediate(() => app.quit());
+  return true;
+});
 ipcMain.on('log', (_e, msg) => console.log('[renderer]', msg));
 
 async function pickAndParseDocument() {
@@ -893,6 +939,8 @@ app.whenReady().then(async () => {
 });
 
 app.on('will-quit', () => {
+  clearInterval(mousePollingTimer);
+  mousePollingTimer = null;
   globalShortcut.unregisterAll();
   if (activeLlmAbort) {
     activeLlmAbort.abort();

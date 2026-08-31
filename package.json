@@ -1,7 +1,7 @@
 {
   "name": "ghostpilot",
   "productName": "GhostPilot",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Open-source desktop copilot for meetings, interviews, and coding with separate screen, microphone, and meeting-audio context.",
   "license": "MIT",
   "author": "Guram Melikidze",
