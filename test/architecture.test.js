@@ -31,3 +31,13 @@ test('overlay is resizable and saves its dimensions', () => {
   assert.match(settings, /windowWidth:\s*null/);
   assert.match(settings, /windowHeight:\s*null/);
 });
+
+test('overlay resize does not impose an application minimum width or height', () => {
+  const main = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'main.js'), 'utf8');
+  const createWindow = main.slice(main.indexOf('function createWindow()'), main.indexOf("ipcMain.handle('settings:get'"));
+  const resizeHandler = main.slice(main.indexOf("ipcMain.on('window:resize-to'"), main.indexOf("ipcMain.on('window:resize-end'"));
+
+  assert.doesNotMatch(createWindow, /minWidth|minHeight/);
+  assert.doesNotMatch(resizeHandler, /Math\.max\((?:320|400),/);
+  assert.match(resizeHandler, /Math\.max\(1,/);
+});

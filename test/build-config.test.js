@@ -16,7 +16,7 @@ test('dist/pack scripts do not pass an inline --config that could bypass electro
   }
 });
 
-test('mac config never auto-publishes and only claims hardened runtime / notarization with a real cert', () => {
+test('release scripts never auto-publish and mac security claims require a real certificate', () => {
   const original = { ...process.env };
   try {
     delete require.cache[require.resolve('../electron-builder.cjs')];
@@ -26,7 +26,10 @@ test('mac config never auto-publishes and only claims hardened runtime / notariz
     delete process.env.APPLE_TEAM_ID;
     const unsigned = require('../electron-builder.cjs');
 
-    assert.equal(unsigned.publish, null);
+    assert.deepEqual(unsigned.publish, [{ provider: 'github', owner: 'z12ob', repo: 'GhostPilot' }]);
+    for (const scriptName of ['dist', 'dist:mac', 'dist:win', 'dist:linux', 'dist:linux:arm64', 'dist:linux:all']) {
+      assert.match(pkg.scripts[scriptName], /--publish never/);
+    }
 
     assert.equal(unsigned.mac.identity, null);
     assert.equal(unsigned.mac.hardenedRuntime, false);
@@ -39,7 +42,7 @@ test('mac config never auto-publishes and only claims hardened runtime / notariz
     process.env.APPLE_TEAM_ID = 'TEAMID1234';
     const signed = require('../electron-builder.cjs');
 
-    assert.equal(signed.publish, null);
+    assert.deepEqual(signed.publish, [{ provider: 'github', owner: 'z12ob', repo: 'GhostPilot' }]);
     assert.equal(signed.mac.identity, undefined);
     assert.equal(signed.mac.hardenedRuntime, true);
     assert.equal(signed.mac.notarize, true);

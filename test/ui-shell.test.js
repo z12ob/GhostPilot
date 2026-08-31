@@ -17,7 +17,7 @@ test('onboarding is an accessible dialog with close and quit paths', () => {
   assert.match(html, /id="ob-close"[^>]*aria-label="Close setup guide"/);
   assert.match(html, /id="ob-quit"[^>]*>Quit GhostPilot</);
   assert.match(renderer, /#ob-close[^\n]*finishOnboard/);
-  assert.match(renderer, /#ob-quit[^\n]*ghostPilot\.quit/);
+  assert.match(renderer, /#ob-quit[^\n]*showQuitConfirmation/);
   assert.match(renderer, /e\.key === 'Escape'[^\n]*finishOnboard/);
 });
 
@@ -42,10 +42,32 @@ test('overlay hit testing is driven by main-process cursor polling', () => {
   assert.match(main, /isPointInRegions/);
 });
 
-test('toolbar Quit button invokes the application quit path', () => {
+test('toolbar Quit button opens an accessible confirmation before quitting', () => {
+  const html = read('renderer/index.html');
   const renderer = read('renderer/renderer.js');
 
-  assert.match(renderer, /#quit-btn'\)\.addEventListener\('click', \(\) => ghostPilot\.quit\(\)\)/);
+  assert.match(html, /id="quit-confirm"[^>]*role="alertdialog"[^>]*aria-modal="true"/);
+  assert.match(html, /id="quit-cancel"[^>]*>Cancel</);
+  assert.match(html, /id="quit-confirm-button"/);
+  assert.match(renderer, /#quit-btn'\)\.addEventListener\('click', showQuitConfirmation\)/);
+  assert.match(renderer, /#quit-confirm-button'[\s\S]*ghostPilot\.quit\(\)/);
+  assert.doesNotMatch(renderer, /#quit-btn'\)\.addEventListener\('click', \(\) => ghostPilot\.quit\(\)\)/);
+});
+
+test('growing chat keeps toolbar and bottom controls fixed around a scrollable message region', () => {
+  const css = read('renderer/styles.css');
+  const panelMain = css.match(/#panel-main\s*\{[^}]*\}/)?.[0] || '';
+  const messages = css.match(/#messages\s*\{[^}]*\}/)?.[0] || '';
+
+  assert.match(css, /#toolbar\s*\{[\s\S]*?flex:\s*0 0 auto;/);
+  assert.match(css, /#panel-wrap\s*\{[\s\S]*?flex:\s*1 1 auto;[\s\S]*?min-height:\s*0;/);
+  assert.match(panelMain, /display:\s*flex/);
+  assert.match(panelMain, /flex-direction:\s*column/);
+  assert.match(panelMain, /min-height:\s*0/);
+  assert.match(messages, /flex:\s*1 1 auto/);
+  assert.match(messages, /min-height:\s*0/);
+  assert.match(messages, /overflow-y:\s*auto/);
+  assert.doesNotMatch(css, /#messages\s*\{[^}]*max-height:\s*50vh/);
 });
 
 test('Windows onboarding explains the desktop-app microphone switch', () => {

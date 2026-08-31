@@ -117,6 +117,18 @@
     <div class="resize-hint" aria-hidden="true"></div>
   </div>
 
+  <div id="quit-confirm-scrim" class="hidden">
+    <div id="quit-confirm" class="glass" role="alertdialog" aria-modal="true" aria-labelledby="quit-confirm-title" aria-describedby="quit-confirm-body">
+      <div class="confirm-kicker">CONFIRM EXIT</div>
+      <h2 id="quit-confirm-title" class="confirm-title">Quit GhostPilot?</h2>
+      <p id="quit-confirm-body" class="confirm-body">GhostPilot will close. Saved meetings and settings will remain on this device.</p>
+      <div class="confirm-actions">
+        <button id="quit-cancel" class="confirm-cancel">Cancel</button>
+        <button id="quit-confirm-button" class="confirm-quit">Quit GhostPilot</button>
+      </div>
+    </div>
+  </div>
+
   
   <div id="settings-scrim" class="hidden">
     <div id="settings" class="glass" role="dialog" aria-modal="true" aria-labelledby="settings-title">
@@ -137,6 +149,7 @@
         <button class="s-tab" id="tab-prep" data-tab="prep" role="tab" aria-selected="false" aria-controls="pane-prep">Prep</button>
         <button class="s-tab" id="tab-style" data-tab="style" role="tab" aria-selected="false" aria-controls="pane-style">Style</button>
         <button class="s-tab" id="tab-qa" data-tab="qa" role="tab" aria-selected="false" aria-controls="pane-qa">Q&amp;A</button>
+        <button class="s-tab" id="tab-updates" data-tab="updates" role="tab" aria-selected="false" aria-controls="pane-updates">Updates</button>
       </div>
 
       
@@ -295,6 +308,26 @@
         <div class="s-hint-block">
           These rules tell GhostPilot <strong>how</strong> to write, not <strong>what</strong> to say. Use one imperative sentence per line (e.g. <em>Never use em-dashes.</em>). They apply to every mode except coding-problem solves (LeetCode), which stays strict. Stored locally; never sent anywhere except the AI provider when GhostPilot answers a question.
         </div>
+      </div>
+
+      <div class="s-body s-tab-pane hidden" id="pane-updates" data-pane="updates" role="tabpanel" aria-labelledby="tab-updates">
+        <div class="update-card">
+          <div class="update-heading-row">
+            <div>
+              <div class="s-label update-label">GhostPilot updates</div>
+              <div id="update-version" class="update-version">Current version</div>
+            </div>
+            <span id="update-badge" class="update-badge">Ready</span>
+          </div>
+          <p id="update-message" class="s-note" role="status" aria-live="polite">Checking update support...</p>
+          <progress id="update-progress" class="hidden" max="100" value="0"></progress>
+          <div class="update-actions">
+            <button id="check-update-button" class="s-action">Check for updates</button>
+            <button id="install-update-button" class="s-action update-install hidden">Restart and install</button>
+          </div>
+          <p id="update-capture-warning" class="s-note hidden">Stop and save the active meeting before installing an update.</p>
+        </div>
+        <div class="s-note">Windows releases and Linux AppImages check GitHub Releases after launch and every four hours. Updates download in the background. GhostPilot waits for you to choose Restart and install.</div>
       </div>
 
 

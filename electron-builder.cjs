@@ -11,7 +11,7 @@ module.exports = {
   appId: "com.ghostpilot.app",
   productName: "GhostPilot",
   asar: true,
-  publish: null,
+  publish: [{ provider: "github", owner: "z12ob", repo: "GhostPilot" }],
   artifactName: "${productName}-${version}-${os}-${arch}.${ext}",
 
   files: ["main.js", "preload.js", "src/**/*", "renderer/**/*"],

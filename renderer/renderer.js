@@ -23,7 +23,6 @@
   renderCaptureButton(false);
   updateNotesButton(false);
   $('#quit-btn').innerHTML = icon('x', { size: 14 });
-  $('#quit-btn').addEventListener('click', () => ghostPilot.quit());
   $('#ob-close').innerHTML = icon('x', { size: 16 });
   document.querySelector('.act[data-mode="assist"] .ic').innerHTML = icon('sparkles', { size: 16 });
   document.querySelector('.act[data-mode="say"] .ic').innerHTML = icon('wand-sparkles', { size: 16 });
@@ -39,6 +38,7 @@
   let whisperOverview = null;
   let busy = false;
   let captureActive = false;
+  let updateState = null;
   let aiEl = null;
   let caretEl = null;
   let responseCount = 0;
@@ -1055,6 +1055,7 @@
 
   ghostPilot.on('capture:state', async ({ active, streaming, mode }) => {
     captureActive = active;
+    if (updateState) renderUpdateState(updateState);
     setLiveDotState(active ? 'idle' : 'off');
     $('#stop-btn').classList.toggle('active', active);
     $('#stop-btn').setAttribute('aria-pressed', String(active));
@@ -1345,6 +1346,51 @@
   }
 
   const scrim = $('#settings-scrim');
+
+  function renderUpdateState(nextState) {
+    if (!nextState) return;
+    updateState = nextState;
+    const version = document.getElementById('update-version');
+    const message = document.getElementById('update-message');
+    const badge = document.getElementById('update-badge');
+    const progress = document.getElementById('update-progress');
+    const checkButton = document.getElementById('check-update-button');
+    const installButton = document.getElementById('install-update-button');
+    const captureWarning = document.getElementById('update-capture-warning');
+    if (!version || !message || !badge || !progress || !checkButton || !installButton || !captureWarning) return;
+
+    const labels = {
+      unavailable: 'Unavailable',
+      idle: 'Ready',
+      checking: 'Checking',
+      downloading: 'Downloading',
+      ready: 'Ready to install',
+      current: 'Up to date',
+      error: 'Check failed'
+    };
+    version.textContent = `Current version ${nextState.currentVersion}`;
+    message.textContent = nextState.message;
+    badge.textContent = labels[nextState.status] || 'Update';
+    badge.classList.toggle('ready', nextState.status === 'ready' || nextState.status === 'current');
+    badge.classList.toggle('error', nextState.status === 'error');
+    progress.value = nextState.progress || 0;
+    progress.classList.toggle('hidden', nextState.status !== 'downloading');
+    checkButton.disabled = !nextState.supported || ['checking', 'downloading', 'ready'].includes(nextState.status);
+    installButton.classList.toggle('hidden', nextState.status !== 'ready');
+    installButton.disabled = captureActive;
+    captureWarning.classList.toggle('hidden', nextState.status !== 'ready' || !captureActive);
+  }
+
+  document.getElementById('check-update-button')?.addEventListener('click', async () => {
+    const nextState = await ghostPilot.updateCheck();
+    renderUpdateState(nextState);
+  });
+  document.getElementById('install-update-button')?.addEventListener('click', async () => {
+    const result = await ghostPilot.updateInstall();
+    if (!result?.ok) showToast(result?.message || 'The update could not be installed.', 3500);
+  });
+  ghostPilot.on('update:state', renderUpdateState);
+
   function openSettings() {
     fillSettings();
     scrim.classList.remove('hidden');
@@ -1690,10 +1736,50 @@
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   }
 
+  const quitScrim = $('#quit-confirm-scrim');
+  let focusBeforeQuit = null;
+  function showQuitConfirmation() {
+    focusBeforeQuit = document.activeElement;
+    $('#quit-confirm-body').textContent = captureActive
+      ? 'Listening is active. GhostPilot will stop and save the meeting before it closes.'
+      : 'GhostPilot will close. Saved meetings and settings will remain on this device.';
+    $('#quit-confirm-button').textContent = captureActive ? 'Stop, save, and quit' : 'Quit GhostPilot';
+    quitScrim.classList.remove('hidden');
+    $('#quit-cancel').focus();
+  }
+  function hideQuitConfirmation() {
+    quitScrim.classList.add('hidden');
+    if (focusBeforeQuit && typeof focusBeforeQuit.focus === 'function') focusBeforeQuit.focus();
+    focusBeforeQuit = null;
+  }
+  $('#quit-btn').addEventListener('click', showQuitConfirmation);
+  $('#quit-cancel').addEventListener('click', hideQuitConfirmation);
+  $('#quit-confirm-button').addEventListener('click', async () => {
+    const confirmButton = $('#quit-confirm-button');
+    confirmButton.disabled = true;
+    $('#quit-cancel').disabled = true;
+    if (captureActive) {
+      $('#quit-confirm-body').textContent = 'Stopping and saving the meeting...';
+      await ghostPilot.captureToggle();
+      const capture = await ghostPilot.captureState();
+      if (capture.active) {
+        $('#quit-confirm-body').textContent = 'GhostPilot could not stop the active meeting. Use Stop and save, then try again.';
+        confirmButton.disabled = false;
+        $('#quit-cancel').disabled = false;
+        return;
+      }
+    }
+    await ghostPilot.quit();
+  });
+  ghostPilot.on('quit:request', showQuitConfirmation);
+
   document.addEventListener('keydown', (e) => {
-    const activeDialog = !obScrim.classList.contains('hidden') ? $('#onboard') : (!scrim.classList.contains('hidden') ? $('#settings') : null);
+    const activeDialog = !quitScrim.classList.contains('hidden')
+      ? $('#quit-confirm')
+      : (!obScrim.classList.contains('hidden') ? $('#onboard') : (!scrim.classList.contains('hidden') ? $('#settings') : null));
     keepFocusInDialog(e, activeDialog);
-    if (e.key === 'Escape' && !obScrim.classList.contains('hidden')) { e.preventDefault(); finishOnboard(); }
+    if (e.key === 'Escape' && !quitScrim.classList.contains('hidden')) { e.preventDefault(); hideQuitConfirmation(); }
+    else if (e.key === 'Escape' && !obScrim.classList.contains('hidden')) { e.preventDefault(); finishOnboard(); }
     else if (e.key === 'Escape' && !scrim.classList.contains('hidden')) closeSettings();
     if ((e.metaKey || e.ctrlKey) && e.key === ',') { e.preventDefault(); openSettings(); }
   });
@@ -1704,6 +1790,7 @@
     '#transcript-sidebar',
     '#settings-scrim',
     '#onboard-scrim',
+    '#quit-confirm-scrim',
     '.resize-hint'
   ];
   let regionUpdateFrame = null;
@@ -1837,7 +1924,7 @@
   $('#ob-next').addEventListener('click', () => { if (obIndex === OB_STEPS.length - 1) finishOnboard(); else { obIndex++; renderOnboard(); } });
   $('#ob-back').addEventListener('click', () => { if (obIndex > 0) { obIndex--; renderOnboard(); } });
   $('#ob-close').addEventListener('click', finishOnboard);
-  $('#ob-quit').addEventListener('click', () => ghostPilot.quit());
+  $('#ob-quit').addEventListener('click', showQuitConfirmation);
   $('#ob-skip').addEventListener('click', finishOnboard);
   $('#logo-btn').addEventListener('click', showOnboard);
 
@@ -1861,6 +1948,7 @@
     updateSendButtonState();
 
     renderSessionSnapshot(await ghostPilot.sessionGet());
+    renderUpdateState(await ghostPilot.updateState());
 
     if (isWindows) {
       placeholder.innerHTML = 'Ask about your screen or conversation, or <span class="keycap">Ctrl</span><span class="keycap">⏎</span> for Assist';

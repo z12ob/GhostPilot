@@ -19,6 +19,8 @@ const { TranscriptBuffer } = require('./src/transcript-buffer');
 const { MeetingSessionStore } = require('./src/meeting-session-store');
 const { waitForIdle } = require('./src/capture-drain');
 const { clampWindowBounds, isPointInRegions } = require('./src/window-interaction');
+const { createUpdateManager } = require('./src/updater');
+const { autoUpdater } = require('electron-updater');
 
 if (process.platform === 'darwin') {
   app.commandLine.appendSwitch('enable-features', 'MacLoopbackAudioForScreenShare,MacSckSystemAudioLoopbackOverride');
@@ -33,6 +35,7 @@ let resizeState = null;
 let interactiveRegions = [];
 let mousePollingTimer = null;
 let ignoringMouse = false;
+let updateManager = null;
 
 const shortcutState = { assist: false, say: false, leetcode: false, hide: false, quit: false };
 const isMac = process.platform === 'darwin';
@@ -214,8 +217,8 @@ function applyWindowProtection(targetWin) {
 function createWindow() {
   const { workArea } = screen.getPrimaryDisplay();
   const savedSettings = store.getSettings();
-  const W = Math.max(400, Math.min(savedSettings.windowWidth || 560, workArea.width));
-  const H = Math.max(320, Math.min(savedSettings.windowHeight || 500, workArea.height));
+  const W = Math.max(1, Math.min(savedSettings.windowWidth || 560, workArea.width));
+  const H = Math.max(1, Math.min(savedSettings.windowHeight || 500, workArea.height));
   let startX = Math.round(workArea.x + (workArea.width - W) / 2);
   let startY = workArea.y + 6;
 
@@ -233,8 +236,6 @@ function createWindow() {
   const winOptions = {
     width: W,
     height: H,
-    minWidth: 400,
-    minHeight: 320,
     x: startX,
     y: startY,
     frame: false,
@@ -322,6 +323,7 @@ function createWindow() {
     win.showInactive();
     win.setTitle('GhostPilot');
     publishSessionState();
+    if (updateManager) send('update:state', updateManager.getState());
 
     if (isWindows && !process.env.GHOSTPILOT_NO_PROTECT && !WIN_SUPPORTS_CONTENT_PROTECTION) {
       send('status', {
@@ -759,6 +761,21 @@ ipcMain.handle('session:open-folder', async () => {
   const message = await shell.openPath(directory);
   return message ? { ok: false, message } : { ok: true };
 });
+ipcMain.handle('update:get-state', () => updateManager?.getState() || {
+  supported: false,
+  currentVersion: app.getVersion(),
+  status: 'unavailable',
+  availableVersion: null,
+  progress: 0,
+  message: 'Update checks are not ready yet.'
+});
+ipcMain.handle('update:check', () => updateManager?.check());
+ipcMain.handle('update:install', () => {
+  if (state.capturing) {
+    return { ok: false, message: 'Stop and save the active meeting before restarting to update.' };
+  }
+  return updateManager?.install() || { ok: false, message: 'No downloaded update is ready to install.' };
+});
 ipcMain.on('window:resize-start', (_event, point) => {
   if (!win || win.isDestroyed() || !Number.isFinite(point?.screenX) || !Number.isFinite(point?.screenY)) return;
   resizeState = { ...win.getBounds(), screenX: point.screenX, screenY: point.screenY };
@@ -766,10 +783,10 @@ ipcMain.on('window:resize-start', (_event, point) => {
 ipcMain.on('window:resize-to', (_event, point) => {
   if (!resizeState || !win || win.isDestroyed() || !Number.isFinite(point?.screenX) || !Number.isFinite(point?.screenY)) return;
   const display = screen.getDisplayNearestPoint({ x: point.screenX, y: point.screenY });
-  const maxWidth = Math.max(400, display.workArea.x + display.workArea.width - resizeState.x);
-  const maxHeight = Math.max(320, display.workArea.y + display.workArea.height - resizeState.y);
-  const width = Math.max(400, Math.min(maxWidth, resizeState.width + point.screenX - resizeState.screenX));
-  const height = Math.max(320, Math.min(maxHeight, resizeState.height + point.screenY - resizeState.screenY));
+  const maxWidth = Math.max(1, display.workArea.x + display.workArea.width - resizeState.x);
+  const maxHeight = Math.max(1, display.workArea.y + display.workArea.height - resizeState.y);
+  const width = Math.max(1, Math.min(maxWidth, resizeState.width + point.screenX - resizeState.screenX));
+  const height = Math.max(1, Math.min(maxHeight, resizeState.height + point.screenY - resizeState.screenY));
   win.setSize(Math.round(width), Math.round(height), false);
 });
 ipcMain.on('window:resize-end', () => { resizeState = null; });
@@ -823,7 +840,7 @@ function registerShortcuts() {
   shortcutState.say = globalShortcut.register('CommandOrControl+Shift+Return', () => runFeature('say', ''));
   shortcutState.leetcode = globalShortcut.register('CommandOrControl+H', () => runFeature('leetcode', ''));
   shortcutState.hide = globalShortcut.register('CommandOrControl+Shift+/', () => send('hide:toggle', {}));
-  shortcutState.quit = globalShortcut.register('CommandOrControl+Shift+X', () => app.quit());
+  shortcutState.quit = globalShortcut.register('CommandOrControl+Shift+X', () => send('quit:request', {}));
 }
 
 async function verifyScreenAccess() {
@@ -917,6 +934,15 @@ function launchApp() {
 
   createWindow();
   registerShortcuts();
+  updateManager = createUpdateManager({
+    updater: autoUpdater,
+    isPackaged: app.isPackaged,
+    platform: process.platform,
+    appImagePath: process.env.APPIMAGE || '',
+    currentVersion: app.getVersion(),
+    publishState: (updateState) => send('update:state', updateState)
+  });
+  updateManager.start();
 }
 
 app.whenReady().then(async () => {
@@ -942,6 +968,10 @@ app.on('will-quit', () => {
   clearInterval(mousePollingTimer);
   mousePollingTimer = null;
   globalShortcut.unregisterAll();
+  if (updateManager) {
+    updateManager.dispose();
+    updateManager = null;
+  }
   if (activeLlmAbort) {
     activeLlmAbort.abort();
     activeLlmAbort = null;

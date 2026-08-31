@@ -14,11 +14,29 @@ function read(relativePath) {
 
 test('defines explicit Windows x64 package targets', () => {
   assert.equal(pkg.scripts['pack:win'], 'electron-builder --win --dir');
-  assert.equal(pkg.scripts['dist:win'], 'electron-builder --win');
+  assert.equal(pkg.scripts['dist:win'], 'electron-builder --win --publish never');
   assert.deepEqual(builder.win.target, [
     { target: 'nsis', arch: ['x64'] },
     { target: 'zip', arch: ['x64'] }
   ]);
+});
+
+test('release builds generate and upload GitHub update metadata without publishing from electron-builder', () => {
+  const workflow = read('.github/workflows/release.yml');
+
+  assert.deepEqual(builder.publish, [{ provider: 'github', owner: 'z12ob', repo: 'GhostPilot' }]);
+  assert.equal(pkg.version, '1.2.0');
+  assert.ok(pkg.dependencies['electron-updater']);
+  assert.match(workflow, /dist\/latest\.yml/);
+  assert.match(workflow, /dist\/latest-linux\.yml/);
+  assert.match(workflow, /dist\/\*\.blockmap/);
+  assert.match(workflow, /npm run dist:linux:all/);
+  assert.match(pkg.scripts['dist:linux:all'], /--x64 --arm64 --publish never/);
+  assert.match(workflow, /uses: actions\/upload-artifact@v4/);
+  assert.match(workflow, /node scripts\/verify-release-version\.js/);
+  assert.match(workflow, /release:\s*[\s\S]*needs:\s*build/);
+  assert.match(workflow, /uses: actions\/download-artifact@v4/);
+  assert.equal((workflow.match(/softprops\/action-gh-release@v2/g) || []).length, 1);
 });
 
 test('ships every runtime directory in packaged builds', () => {

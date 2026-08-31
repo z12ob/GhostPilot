@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  build:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -37,6 +37,9 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      - name: Verify release version
+        run: node scripts/verify-release-version.js
+
       - name: Build macOS
         if: matrix.os == 'macos-latest' && env.MAC_SIGNING_CONFIGURED == 'true'
         run: npm run dist
@@ -60,15 +63,56 @@ jobs:
 
       - name: Build Linux x64 and arm64
         if: matrix.os == 'ubuntu-latest'
-        run: npm run dist:linux && npm run dist:linux:arm64
+        run: npm run dist:linux:all
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHOSTPILOT_BUNDLE_WHISPER: '1'
 
+      - name: Collect Windows release files
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          if-no-files-found: error
+          path: |
+            dist/GhostPilot-win-x64.exe
+            dist/GhostPilot-win-x64.zip
+            dist/latest.yml
+            dist/*.blockmap
+
+      - name: Collect Linux release files
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-release
+          if-no-files-found: error
+          path: |
+            dist/GhostPilot-*-linux-*.AppImage
+            dist/latest-linux.yml
+            dist/*.blockmap
+
+      - name: Collect macOS release files
+        if: matrix.os == 'macos-latest' && env.MAC_SIGNING_CONFIGURED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-release
+          if-no-files-found: error
+          path: |
+            dist/GhostPilot-*-mac-*.zip
+            dist/latest-mac.yml
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release files
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
       - name: Upload to GitHub Release
-        # Skipped on macOS until signing is configured, so an ad-hoc build can
-        # never replace a signed asset already attached to the release.
-        if: matrix.os != 'macos-latest' || env.MAC_SIGNING_CONFIGURED == 'true'
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
@@ -80,5 +124,9 @@ jobs:
             dist/GhostPilot-win-x64.zip
             dist/GhostPilot-*-mac-*.zip
             dist/GhostPilot-*-linux-*.AppImage
+            dist/latest.yml
+            dist/latest-mac.yml
+            dist/latest-linux.yml
+            dist/*.blockmap
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -28,6 +28,7 @@ Bring your own API key for OpenAI, Anthropic, Google Gemini, Azure AI Foundry, G
 - Live raw transcription with copy and local session files
 - Recovery of the latest saved session after an unexpected close
 - Local Whisper transcription option
+- Automatic update checks with an explicit restart step
 - No GhostPilot account or telemetry
 
 ## Platform support
@@ -47,26 +48,25 @@ Screen-share exclusion depends on the operating system and capture application. 
 ### Windows
 
 1. Open [GitHub Releases](https://github.com/z12ob/GhostPilot/releases).
-2. Download `GhostPilot-win-x64.zip` for the recommended portable build.
-3. Extract the zip to its own folder, then run `GhostPilot.exe` from that folder.
-4. If Windows SmartScreen appears, select **More info**, then **Run anyway**. Current builds are not code-signed.
-5. Follow the setup guide, open Settings, choose a provider, and enter the required API key.
-6. Join a call, make sure its sound plays through the current Windows default output device, then select **Listen**.
+2. Download `GhostPilot-win-x64.exe` for the standard installation and automatic updates.
+3. Run the installer. If Windows SmartScreen appears, select **More info**, then **Run anyway**. Current builds are not code-signed.
+4. Follow the setup guide, open Settings, choose a provider, and enter the required API key.
+5. Join a call, make sure its sound plays through the current Windows default output device, then select **Listen**.
 
-The optional `GhostPilot-win-x64.exe` is the standard Windows installer. It adds Start menu and desktop shortcuts. The portable zip is recommended while releases are unsigned.
+`GhostPilot-win-x64.zip` is the portable alternative. Extract it to its own folder and run `GhostPilot.exe`. A portable copy can find an update, but applying it opens the standard installer and does not replace the old extracted folder. Use the installed shortcut after updating.
 
 ### Linux
 
 Download the AppImage that matches your CPU:
 
-- `GhostPilot-1.1.1-linux-x86_64.AppImage`
-- `GhostPilot-1.1.1-linux-arm64.AppImage`
+- `GhostPilot-1.2.0-linux-x86_64.AppImage`
+- `GhostPilot-1.2.0-linux-arm64.AppImage`
 
 For x64 Linux:
 
 ```bash
-chmod +x GhostPilot-1.1.1-linux-x86_64.AppImage
-./GhostPilot-1.1.1-linux-x86_64.AppImage
+chmod +x GhostPilot-1.2.0-linux-x86_64.AppImage
+./GhostPilot-1.2.0-linux-x86_64.AppImage
 ```
 
 Desktop audio capture varies across Wayland, X11, PipeWire, and desktop environments.
@@ -79,14 +79,14 @@ Signed macOS downloads are not published yet. To run GhostPilot from source, use
 
 | File | Intended user |
 |---|---|
-| `GhostPilot-win-x64.zip` | Recommended portable Windows app |
-| `GhostPilot-win-x64.exe` | Optional Windows installer |
-| `GhostPilot-1.1.1-linux-x86_64.AppImage` | Linux x64 app |
-| `GhostPilot-1.1.1-linux-arm64.AppImage` | Linux arm64 app |
+| `GhostPilot-win-x64.exe` | Windows installer with the standard automatic update path |
+| `GhostPilot-win-x64.zip` | Portable Windows app |
+| `GhostPilot-1.2.0-linux-x86_64.AppImage` | Linux x64 app |
+| `GhostPilot-1.2.0-linux-arm64.AppImage` | Linux arm64 app |
 | Source code (zip) | Developers who want the tagged source snapshot |
 | Source code (tar.gz) | Developers who prefer a tar archive |
 
-GitHub automatically adds the two source archives to every release. The four GhostPilot files are the runnable builds produced by the release workflow.
+GitHub automatically adds the two source archives to every release. The four GhostPilot files are the runnable builds produced by the release workflow. Files named `latest*.yml` and `*.blockmap` are update metadata used by the app. Users do not need to download those files directly.
 
 ## Use GhostPilot in a meeting
 
@@ -176,17 +176,22 @@ The Fast and Smart fields affect reasoning only. They do not change speech-to-te
 
 ## Updating
 
-GhostPilot does not update itself yet. Existing downloads remain on the version that was installed or extracted.
+Packaged GhostPilot 1.2.0 releases and later check GitHub Releases shortly after launch and every four hours while running. When a newer version exists, GhostPilot downloads it in the background. Open **Settings > Updates** to view progress, check manually, or choose **Restart and install** after the download finishes.
 
-- Portable Windows build: close GhostPilot, download the new zip, extract it to a new folder, and run the new `GhostPilot.exe`.
-- Windows installer: close GhostPilot, download the new installer, and install it over the existing version.
-- Linux: download the new AppImage and replace the old file.
+GhostPilot never restarts automatically during a meeting. Stop and save an active meeting before installing an update.
+
+- Version 1.1.1 and earlier: download and install version 1.2.0 manually once. Older apps do not contain the updater.
+- Windows installer: later releases download automatically and wait for Restart and install.
+- Portable Windows build: the update flow opens the standard installer. The previous extracted folder is not modified.
+- Linux AppImage: later AppImage releases download automatically and wait for Restart and install.
+- Source builds: pull and rebuild manually. Update checks are disabled during development.
 
 Settings, API keys, and downloaded local transcription models live in the operating system user-data folder, outside the application folder. Replacing the app should preserve them.
 
 ## Privacy and security
 
 - GhostPilot has no account system or telemetry.
+- Automatic update checks contact public GitHub Releases. GhostPilot does not operate a separate update or analytics server.
 - Settings and API keys are stored locally in `ghostpilot-data.json` under Electron's user-data folder.
 - Audio is processed in memory and is not saved as an audio file.
 - Raw transcripts and generated notes are stored locally in the `meetings` folder under Electron's user-data folder.

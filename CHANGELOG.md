@@ -8,6 +8,21 @@ GhostPilot is a local-first Electron overlay that reads screen, microphone, and 
 
 ## 31-Aug-2026
 
+**v1.2.0 flexible overlay and automatic updates**
+
+- Rebuilt the overlay shell so the toolbar and bottom controls keep their space while long AI responses scroll inside the message area.
+- Removed GhostPilot's fixed 400 by 320 resize floor. The frameless window can now follow the dimensions allowed by the operating system and active display.
+- Added an accessible exit confirmation to the toolbar, onboarding exit, and quit shortcut.
+- When listening is active, confirmed exit stops and saves the meeting before closing.
+- Added automatic update checks for installed Windows builds and Linux AppImages through public GitHub Releases.
+- Added an Updates settings page with current version, check status, download progress, and an explicit Restart and install action.
+- Prevented updates from restarting GhostPilot during an active meeting.
+- Added updater metadata and differential download files to release builds.
+- Changed the release workflow to collect all platform artifacts before publishing one complete GitHub Release.
+- Advanced the release version to 1.2.0 for the new update system.
+- Expanded the automated suite from 168 to 175 passing tests.
+- Verified the Windows installer, update checksum metadata, packaged updater, long-chat layout, unrestricted app resize path, confirmed exit, and clean production dependency audit.
+
 **v1.1.1 overlay reliability**
 
 - Replaced renderer-dependent click-through recovery with main-process cursor hit testing so Drag, Hide, Listen, and Quit remain interactive.

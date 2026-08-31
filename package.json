@@ -1,7 +1,7 @@
 {
   "name": "ghostpilot",
   "productName": "GhostPilot",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Open-source desktop copilot for meetings, interviews, and coding with separate screen, microphone, and meeting-audio context.",
   "license": "MIT",
   "author": "Guram Melikidze",
@@ -21,12 +21,13 @@
     "prepare:whisper": "node scripts/prepare-whisper-runtime.js",
     "verify:whisper-runtime": "node scripts/verify-whisper-runtime.js",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder --mac zip",
-    "dist:mac": "electron-builder --mac zip",
-    "dist:win": "electron-builder --win",
+    "dist": "electron-builder --mac zip --publish never",
+    "dist:mac": "electron-builder --mac zip --publish never",
+    "dist:win": "electron-builder --win --publish never",
     "pack:win": "electron-builder --win --dir",
-    "dist:linux": "electron-builder --linux AppImage --x64",
-    "dist:linux:arm64": "electron-builder --linux AppImage --arm64"
+    "dist:linux": "electron-builder --linux AppImage --x64 --publish never",
+    "dist:linux:arm64": "electron-builder --linux AppImage --arm64 --publish never",
+    "dist:linux:all": "electron-builder --linux AppImage --x64 --arm64 --publish never"
   },
   "keywords": [
     "electron",
@@ -49,6 +50,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
     "@google/genai": "^2.12.0",
+    "electron-updater": "^6.8.9",
     "lucide-static": "^0.468.0",
     "mammoth": "^1.8.0",
     "openai": "^4.73.0",
