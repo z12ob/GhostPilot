@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+.osandones/implementation/
 
 # Build output
 dist/

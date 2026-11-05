@@ -16,6 +16,14 @@
 
 GhostPilot is an open-source Electron overlay that combines your screen, microphone, and meeting audio with an AI provider you choose. It can suggest a reply during a conversation, answer questions about the current screen, solve coding problems, and turn a long transcript into organized notes.
 
+## Optional protected context ranking
+
+GhostPilot's existing MIT-licensed code remains free to use under the MIT License. The repository also defines an optional context-ranking interface for a new implementation that is distributed separately through Osandones and is not present in Git history.
+
+Run `npm run demo:protected-context` to exercise the interface. A fresh clone returns a structured `OSANDONES_ACCESS_REQUIRED` response with the canonical repository, component, and authorization URL. After an authorized sandbox purchase is independently confirmed, the inspectable Osandones installer places the exact entitled module in the gitignored `.osandones/implementation/` directory and the same command produces ranked context.
+
+The committed `.osandones/policy.json` file is a discovery pointer, not a license or a security boundary. Removing it does not reveal the absent implementation or change GhostPilot's MIT permissions.
+
 Bring your own API key for OpenAI, Anthropic, Google Gemini, Azure AI Foundry, Groq, MiniMax, or an OpenAI-compatible endpoint. Ollama is supported for local chat models.
 
 ## Highlights

@@ -17,6 +17,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test test/*.test.js",
+    "demo:protected-context": "node scripts/demo-protected-context.js",
     "postinstall": "node node_modules/electron/install.js && node scripts/rename-electron.js",
     "prepare:whisper": "node scripts/prepare-whisper-runtime.js",
     "verify:whisper-runtime": "node scripts/verify-whisper-runtime.js",
