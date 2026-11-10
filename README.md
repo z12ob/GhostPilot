@@ -20,7 +20,12 @@ GhostPilot is an open-source Electron overlay that combines your screen, microph
 
 GhostPilot's existing MIT-licensed code remains free to use under the MIT License. The repository also defines an optional context-ranking interface for a new implementation that is distributed separately through Osandones and is not present in Git history.
 
-Run `npm run demo:protected-context` to exercise the interface. A fresh clone returns a structured `OSANDONES_ACCESS_REQUIRED` response with the canonical repository, component, and authorization URL. After an authorized sandbox purchase is independently confirmed, the inspectable Osandones installer places the exact entitled module in the gitignored `.osandones/implementation/` directory and the same command produces ranked context.
+Use the two explicit recording checks:
+
+- `npm run demo:protected-context:before` confirms that a fresh clone returns the structured `OSANDONES_ACCESS_REQUIRED` response.
+- `npm run demo:protected-context:after` confirms that an acquired component is installed and produces meaningful ranked context.
+
+After an authorized sandbox purchase is independently confirmed, the inspectable Osandones installer writes the exact entitled module to `.osandones/implementation/protected-context-ranker.mjs`. That directory is gitignored; the implementation does not enter the public repository.
 
 The committed `.osandones/policy.json` file is a discovery pointer, not a license or a security boundary. Removing it does not reveal the absent implementation or change GhostPilot's MIT permissions.
 

@@ -18,6 +18,8 @@
     "start": "electron .",
     "test": "node --test test/*.test.js",
     "demo:protected-context": "node scripts/demo-protected-context.js",
+    "demo:protected-context:before": "node scripts/demo-protected-context.js --expect-locked",
+    "demo:protected-context:after": "node scripts/demo-protected-context.js --expect-available",
     "postinstall": "node node_modules/electron/install.js && node scripts/rename-electron.js",
     "prepare:whisper": "node scripts/prepare-whisper-runtime.js",
     "verify:whisper-runtime": "node scripts/verify-whisper-runtime.js",

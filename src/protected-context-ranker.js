@@ -6,13 +6,15 @@ const component = 'protected-context-ranker';
 const requestedUse = 'commercial-integration';
 const authorizationUrl =
   'https://app.osandones.com/account/buy?repository=z12ob%2FGhostPilot&use=commercial-integration';
-const implementationPath = path.resolve(
-  __dirname,
-  '..',
-  '.osandones',
-  'implementation',
-  'protected-component.mjs',
-);
+const implementationPath = process.env.OSANDONES_CONTEXT_RANKER_PATH
+  ? path.resolve(process.env.OSANDONES_CONTEXT_RANKER_PATH)
+  : path.resolve(
+      __dirname,
+      '..',
+      '.osandones',
+      'implementation',
+      'protected-context-ranker.mjs',
+    );
 
 class OsandonesAccessRequiredError extends Error {
   constructor() {
@@ -35,7 +37,7 @@ async function loadImplementation() {
   } catch (error) {
     if (
       error?.code === 'ERR_MODULE_NOT_FOUND' &&
-      String(error?.message).includes('protected-component.mjs')
+      String(error?.message).includes(path.basename(implementationPath))
     ) {
       throw new OsandonesAccessRequiredError();
     }
@@ -53,5 +55,6 @@ async function rankProtectedContext(input) {
 
 module.exports = {
   OsandonesAccessRequiredError,
+  implementationPath,
   rankProtectedContext,
 };
