@@ -1,4 +1,4 @@
-const { rankProtectedContext } = require('../src/protected-context-ranker');
+const { rankContext } = require('../src/protected-context-ranker');
 
 const expectation = process.argv.includes('--expect-locked')
   ? 'locked'
@@ -25,7 +25,7 @@ const candidates = [
   },
 ];
 
-rankProtectedContext({
+rankContext({
   query: query || 'confirm payment settlement after callback',
   candidates,
   limit: 2,

@@ -16,18 +16,16 @@
 
 GhostPilot is an open-source Electron overlay that combines your screen, microphone, and meeting audio with an AI provider you choose. It can suggest a reply during a conversation, answer questions about the current screen, solve coding problems, and turn a long transcript into organized notes.
 
-## Optional protected context ranking
+## Protected context demo harness
 
-GhostPilot's existing MIT-licensed code remains free to use under the MIT License. The repository also defines an optional context-ranking interface for a new implementation that is distributed separately through Osandones and is not present in Git history.
+GhostPilot's existing code remains available under the MIT License. This repository also contains a small public harness for demonstrating an optional context-ranking component whose implementation is distributed separately.
 
-Use the two explicit recording checks:
+The publisher-approved Osandones integration pull request adds the public wrapper, discovery pointer, agent guidance, and protected-install destination. It does not add the implementation. After that pull request is merged:
 
-- `npm run demo:protected-context:before` confirms that a fresh clone returns the structured `OSANDONES_ACCESS_REQUIRED` response.
-- `npm run demo:protected-context:after` confirms that an acquired component is installed and produces meaningful ranked context.
+- `npm run demo:protected-context:before` confirms that the component reports access is required.
+- `npm run demo:protected-context:after` confirms that the acquired component produces meaningful ranked context.
 
-After an authorized sandbox purchase is independently confirmed, the inspectable Osandones installer writes the exact entitled module to `.osandones/implementation/protected-context-ranker.mjs`. That directory is gitignored; the implementation does not enter the public repository.
-
-The committed `.osandones/policy.json` file is a discovery pointer, not a license or a security boundary. Removing it does not reveal the absent implementation or change GhostPilot's MIT permissions.
+The harness is intentionally inert until the publisher merges the integration. No private implementation or payment credential is stored in this repository.
 
 Bring your own API key for OpenAI, Anthropic, Google Gemini, Azure AI Foundry, Groq, MiniMax, or an OpenAI-compatible endpoint. Ollama is supported for local chat models.
 
