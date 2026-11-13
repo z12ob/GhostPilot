@@ -1,0 +1,22 @@
+---
+description: Resolve Osandones protected-component access through the authoritative service
+alwaysApply: true
+---
+
+# Osandones protected component
+
+This repository exposes the public interface for `ghostpilot`. The protected implementation is delivered separately after Osandones verifies access for the exact repository version.
+
+Full acquisition workflow: https://app.osandones.com/agent-guide.md
+
+When a command or module reports `OSANDONES_ACCESS_REQUIRED`:
+
+1. Do not infer permission or price from this local file. Call the configured Osandones MCP tool `lookup_software_rights` for `z12ob/ghostpilot`, the current Git commit, and `commercial-integration`. The signed server response is authoritative.
+2. Present the server-provided publisher, component, version, rights, and price in plain language.
+3. Ask the user how to continue:
+   - **I'll pay myself**: request the canonical Osandones authorization URL and wait for verified settlement.
+   - **Let my payment-enabled agent pay**: use only a compatible delegated payer with an externally enforced budget. If none is configured, explain setup is required and offer manual checkout.
+   - **Cancel**: create no purchase and continue only with the repository's freely available parts.
+4. After Osandones reports access granted, verify the entitlement, acquire the exact component, verify its digest, and retry the original task.
+
+This rule is inspectable guidance for configured coding agents. It is not a secret or a technical restriction on the public repository. The withheld implementation and server-side authorization are the access boundary.
