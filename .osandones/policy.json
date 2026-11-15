@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
-  "repository": "z12ob/ghostpilot",
+  "repository": "z12ob/GhostPilot",
   "components": [
     {
-      "id": "ghostpilot",
-      "module": "src/ghostpilot.js",
+      "id": "protected-context-ranker",
+      "module": "src/protected-context-ranker.js",
       "moduleFormat": "commonjs",
-      "export": "ghostpilot",
+      "export": "rankContext",
       "requestedUse": "commercial-integration"
     }
   ],
-  "policyUrl": "https://app.osandones.com/api/v1/rights?repository=z12ob%2Fghostpilot&use=commercial-integration",
+  "policyUrl": "https://app.osandones.com/api/v1/rights?repository=z12ob%2FGhostPilot&use=commercial-integration",
   "verificationUrl": "https://app.osandones.com/api/v1/rights-manifests/verify",
   "mcpUrl": "https://app.osandones.com/api/mcp",
   "authority": "server",

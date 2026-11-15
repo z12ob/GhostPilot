@@ -1,11 +1,11 @@
-const repository = "z12ob/ghostpilot";
-const component = "ghostpilot";
+const repository = "z12ob/GhostPilot";
+const component = "protected-context-ranker";
 const requestedUse = "commercial-integration";
-const authorizationUrl = "https://app.osandones.com/account/buy?repository=z12ob%2Fghostpilot&use=commercial-integration";
+const authorizationUrl = "https://app.osandones.com/account/buy?repository=z12ob%2FGhostPilot&use=commercial-integration";
 
 class OsandonesAccessRequiredError extends Error {
   constructor() {
-    super(`The protected component ghostpilot for ${repository} is not installed. Request access through Osandones: ${authorizationUrl}`);
+    super(`The protected component protected-context-ranker for ${repository} is not installed. Request access through Osandones: ${authorizationUrl}`);
     this.name = "OsandonesAccessRequiredError";
     this.code = "OSANDONES_ACCESS_REQUIRED";
     this.repository = repository;
@@ -17,12 +17,12 @@ class OsandonesAccessRequiredError extends Error {
 
 async function loadImplementation() {
   try {
-    return await import("../.osandones/implementation/ghostpilot.mjs");
+    return await import("../.osandones/implementation/protected-context-ranker.mjs");
   } catch (error) {
     const missingModule = String(error?.message ?? "").replaceAll("\\", "/");
     if (
       error?.code === "ERR_MODULE_NOT_FOUND" &&
-      missingModule.includes(".osandones/implementation/ghostpilot.mjs")
+      missingModule.includes(".osandones/implementation/protected-context-ranker.mjs")
     ) {
       throw new OsandonesAccessRequiredError();
     }
@@ -30,9 +30,9 @@ async function loadImplementation() {
   }
 }
 
-async function ghostpilot(...args) {
+async function rankContext(...args) {
   const implementation = await loadImplementation();
-  const callable = implementation["ghostpilot"];
+  const callable = implementation["rankContext"];
   if (typeof callable !== "function") {
     throw new Error("The acquired component does not provide the expected export.");
   }
@@ -41,5 +41,5 @@ async function ghostpilot(...args) {
 
 module.exports = {
   OsandonesAccessRequiredError,
-  ghostpilot,
+  rankContext,
 };
