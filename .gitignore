@@ -33,3 +33,8 @@ asset.md
 
 # Electron dist cache
 node_modules/electron/dist/electron.exe.bak
+
+# Local package-manager noise
+pnpm-lock.yaml
+pnpm-workspace.yaml
+
